@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=62.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "micropytest"
+version = "0.1.0"
+description = "A micro test runner"
+authors = [
+  { name="Thomas Fischer", email="tfischer@beamng.gmbh" }
+]
+license = {text = "MIT"}
+requires-python = ">=3.6"
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
+
+[project.optional-dependencies]
+color = ["colorama"]
+
+[project.scripts]
+micropytest = "micropytest.cli:console_main"
