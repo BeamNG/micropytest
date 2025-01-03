@@ -23,10 +23,8 @@ from collections import Counter
 try:
     from pathlib import Path
 except ImportError:
-    # If Python 3.4 doesn't have pathlib by default in your environment,
-    # you may need a backport (e.g. 'pip install pathlib').
-    # But Python 3.4 *should* include pathlib in the standard library.
-    raise ImportError("pathlib is required but not found. Install it or upgrade your Python version.")
+    # If Python 3.4 doesn't have pathlib, you may need the backport.
+    raise ImportError("pathlib is required but not found.")
 
 import importlib.util
 
@@ -86,7 +84,6 @@ class TestContext:
         self.log.critical(msg)
 
     def add_artifact(self, key, value):
-        # In Python 3.4, pathlib.Path exists, but let's be careful about f-strings
         from pathlib import Path
         if isinstance(value, (str, Path)):
             path_val = Path(value)
@@ -155,14 +152,12 @@ def load_test_module_by_path(file_path):
 def find_test_files(start_dir="."):
     """
     Recursively find all *.py that match test_*.py or *_test.py,
-    excluding files in typical virtual environment or site-packages folders,
-    using os.walk for Python 3.4 compatibility (rglob is 3.5+).
+    excluding files in typical virtual env or site-packages, etc.
     """
     test_files = []
     for root, dirs, files in os.walk(start_dir):
-        # Exclude certain directories
-        if (".venv" in root) or ("venv" in root) or ("site-packages" in root) or ('__pycache__' in root):
-            # Skip processing this folder
+        # Skip typical venv, site-packages, etc.
+        if (".venv" in root) or ("venv" in root) or ("site-packages" in root) or ("__pycache__" in root):
             continue
 
         for f in files:
@@ -203,19 +198,28 @@ def store_lastrun(tests_root, test_durations):
         pass
 
 
-def run_tests(tests_path, show_estimates):
+def run_tests(tests_path,
+              show_estimates,
+              context_class=TestContext,
+              context_kwargs=None):
     """
     The core function that:
       1) Discovers test_*.py
       2) For each test function test_*,
-         - optionally injects a TestContext
+         - optionally injects a TestContext (or a user-provided subclass)
          - times the test
          - logs pass/fail
       3) Updates .micropytest.json with durations
       4) Returns a list of test results
 
-    Note: Logging configuration (verbosity, quiet, etc.) can be done by the caller.
+    :param tests_path: (str) Where to discover tests
+    :param show_estimates: (bool) Whether to show time estimates
+    :param context_class: (type) A class to instantiate as the test context
+    :param context_kwargs: (dict) Additional kwargs to pass to the context_class constructor
     """
+    if context_kwargs is None:
+        context_kwargs = {}
+
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)  # or caller sets this
 
@@ -262,7 +266,8 @@ def run_tests(tests_path, show_estimates):
 
     # Run each test
     for idx, (file_path, test_name, test_func) in enumerate(test_funcs, start=1):
-        ctx = TestContext()
+        # Create a context of the user-specified type
+        ctx = context_class(**context_kwargs)
 
         # attach a log handler for this test
         test_handler = GlobalContextLogHandler(ctx, formatter=formatter)
