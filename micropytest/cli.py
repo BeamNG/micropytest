@@ -32,10 +32,19 @@ def console_main():
         prog="micropytest",
         description="micropytest - 'pytest but smaller, simpler, and smarter'."
     )
+    # Add a --version flag for quick version check
+    parser.add_argument("--version", action="store_true",
+                        help="Show micropytest version and exit.")
+
     parser.add_argument("path", nargs="?", default=".")
     parser.add_argument("-v", "--verbose", action="store_true", help="More logs.")
     parser.add_argument("-q", "--quiet",   action="store_true", help="Quiet mode.")
     args = parser.parse_args()
+
+    # If --version is requested, just print it and exit
+    if args.version:
+        print(__version__)
+        sys.exit(0)
 
     if args.verbose and args.quiet:
         parser.error("Cannot use both -v and -q together.")
