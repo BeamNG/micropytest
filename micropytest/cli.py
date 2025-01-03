@@ -46,24 +46,26 @@ def console_main():
     # root logger
     root_logger = logging.getLogger()
 
-    # Attach a 'live' console handler
+    # Create our formatter and handler
     live_format = SimpleLogFormatter()
     live_handler = create_live_console_handler(formatter=live_format)
-    root_logger.addHandler(live_handler)
 
-    # Set level based on -v/-q
-    if args.verbose:
-        root_logger.setLevel(logging.DEBUG)
-    elif args.quiet:
-        # Log level above CRITICAL => effectively no logs
+    # If quiet => set level above CRITICAL (so no logs) and skip attaching the handler
+    if args.quiet:
         root_logger.setLevel(logging.CRITICAL + 1)
+    elif args.verbose:
+        root_logger.setLevel(logging.DEBUG)
+        root_logger.addHandler(live_handler)
     else:
         root_logger.setLevel(logging.INFO)
+        root_logger.addHandler(live_handler)
 
-    # Show estimates only if not quiet
+    # Only show estimates if not quiet
     show_estimates = not args.quiet
 
-    logging.info("micropytest version: {}".format(__version__))
+    # Log version only if not quiet (or if you want to keep it, you can remove the condition)
+    if not args.quiet:
+        logging.info("micropytest version: {}".format(__version__))
 
     # Run tests
     test_results = run_tests(tests_path=args.path, show_estimates=show_estimates)
@@ -82,9 +84,8 @@ def console_main():
     warnings_count = log_counter["WARNING"]
     errors_count   = log_counter["ERROR"] + log_counter["CRITICAL"]
 
-    # If quiet, produce a concise summary
+    # If not quiet, we print the fancy ASCII summary and per-test lines
     if not args.quiet:
-        # Otherwise, show the fancy ASCII summary
         print(r"""
             _____    _______        _
         |  __ \  |__   __|      | |
@@ -94,9 +95,9 @@ def console_main():
     | ._,_|_|    \__, |_|\___||___/\__|
     | |           __/ |
     |_|          |___/           Report
-    """)
+        """)
 
-        # Per-test line
+        # Show each test's line
         for outcome in test_results:
             status = outcome["status"]
             if status == "pass":
@@ -116,7 +117,6 @@ def console_main():
                 testkey, color_status, Style.RESET_ALL, duration_s)
             )
 
-            # If verbose, print logs/artifacts
             if args.verbose:
                 for (lvl, msg) in outcome["logs"]:
                     print("  {}".format(msg))
@@ -124,14 +124,12 @@ def console_main():
                     print("  Artifacts: {}".format(outcome["artifacts"]))
                 print()
 
-    # Build final summary line
-    # Helper to handle singular/plural forms
+    # Build the final summary line for both quiet and non-quiet modes
     def plural(count, singular, plural_form):
         return singular if count == 1 else plural_form
 
     total_str = "{} {}".format(total, plural(total, "test", "tests"))
 
-    # Build list for pass/skip/fail/warnings/errors/time
     summary_chunks = []
     if passed > 0:
         summary_chunks.append("{}{} passed{}".format(Fore.GREEN, passed, Style.RESET_ALL))
@@ -152,16 +150,16 @@ def console_main():
             Style.RESET_ALL
         ))
 
-    # Calculate total test time
+    # Total time across all tests
     total_time = sum(o["duration_s"] for o in test_results)
     if total_time > 0.01:
-        summary_chunks.append("{}took {:.2f}s{}".format(
-            Fore.CYAN, total_time, Style.RESET_ALL
-        ))
+        summary_chunks.append("{}took {:.2f}s{}".format(Fore.CYAN, total_time, Style.RESET_ALL))
 
-    # If no tests
     if not summary_chunks:
         summary_chunks.append("{}no tests run{}".format(Fore.CYAN, Style.RESET_ALL))
 
-    # Final summary e.g. "Summary: 4 tests => 3 passed, 1 failed, took 0.13s"
-    print("Summary: {} => {}".format(total_str, ", ".join(summary_chunks)))
+    # Final summary line
+    if args.quiet:
+        print("microPyTest v{}: {} => {}".format(__version__, total_str, ", ".join(summary_chunks)))
+    else:
+        print("Summary: {} => {}".format(total_str, ", ".join(summary_chunks)))
