@@ -2,7 +2,7 @@
 
 **microPyTest** is a minimal, pure python-based test runner that you can use directly in code.
 
-![screenshot.png](docs/screenshot.png)
+![screenshot.png](https://github.com/BeamNG/micropytest/raw/main/docs/screenshot.png)
 
 ## Key Points
 
@@ -91,6 +91,7 @@ micropytest -v my_tests
 
 ## Changelog
 
+- **v0.3.1** – Fixed screenshot in pypi
 - **v0.3** – Added ability to skip tests
 - **v0.2** – Added support for custom context classes
 - **v0.1** – Initial release
