@@ -306,6 +306,9 @@ test_sub.py::test_something_else                   - PASS in 0.000s
 
 ## Changelog
 
+### v0.1.1 - 2025-01-01
+- Improved readme only
+
 ### v0.1 - 2025-01-01
 - Initial release.
 
