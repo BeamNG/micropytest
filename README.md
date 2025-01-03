@@ -48,25 +48,15 @@ print("Test run complete: {}/{} passed".format(passed, total))
 
 ## Differences from pyTest
 
-If you’re coming from pytest:
+- **Code-first**: You typically call `run_tests(...)` from Python scripts. The CLI is optional if you prefer it.
 
-1. **No fixtures or plugins**
+- **Artifact handling is built-in**: `ctx.add_artifact("some_key", value)` can store files or data for later review. No extra plugin required.
 
-   microPyTest is intentionally minimal. Tests can still share state by passing a custom context class if needed.
+- **No fixtures or plugins**: microPyTest is intentionally minimal. Tests can still share state by passing a custom context class if needed.
 
-2. **No complex configuration**
+- **No configuration**: There’s no `pytest.ini` or `conftest.py`. Just put your test functions in `test_*.py` or `*_test.py`.
 
-   There’s no `pytest.ini` or `conftest.py`. Just put your test functions in `test_*.py` or `*_test.py`.
-
-3. **Artifact handling is built-in**
-
-   `ctx.add_artifact("some_key", value)` can store files or data for later review. No extra plugin required.
-
-4. **Time estimates for each test**
-
-5. **Code-first**
-
-   You typically call `run_tests(...)` from Python scripts. The CLI is optional if you prefer it.
+- **Time estimates for each test**
 
 ## Quickstart
 
