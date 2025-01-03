@@ -20,6 +20,7 @@ from pathlib import Path
 import importlib.util
 from datetime import datetime
 from collections import Counter
+from . import __version__
 
 try:
     from colorama import init as colorama_init, Fore, Style
@@ -151,33 +152,35 @@ def find_test_files(start_dir="."):
     return test_files
 
 
-def load_lastrun():
+def load_lastrun(tests_root: str):
     """
-    Load .micropytest.json if present, returning a dict with test durations, etc.
+    Load .micropytest.json from the given tests root (tests_root/.micropytest.json) if present.
+    Returns a dict with test durations, etc.
     """
-    p = Path(CONFIG_FILE)
+    p = Path(tests_root) / CONFIG_FILE
     if p.exists():
         try:
             with p.open("r", encoding="utf-8") as f:
                 return json.load(f)
-        except:
+        except Exception:
             pass
     return {}
 
 
-def store_lastrun(test_durations):
+def store_lastrun(tests_root: str, test_durations):
     """
-    Write out test durations to .micropytest.json.
+    Write out test durations to tests_root/.micropytest.json.
     """
     data = {
-        "_comment": "This file is optional: it stores data about the last run of tests for estimates.",
+        "_comment": "This file is optional: it stores data about the last run of tests for doing time estimates.",
+        "micropytest_version": __version__,
         "test_durations": test_durations
     }
-    p = Path(CONFIG_FILE)
+    p = Path(tests_root) / CONFIG_FILE
     try:
         with p.open("w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
-    except:
+    except Exception:
         pass
 
 
@@ -199,8 +202,8 @@ def run_tests(tests_path: str, show_estimates: bool):
 
     formatter = SimpleLogFormatter()
 
-    # Load known durations
-    lastrun_data = load_lastrun()
+    # Load known durations from tests_path/.micropytest.json
+    lastrun_data = load_lastrun(tests_path)
     test_durations = lastrun_data.get("test_durations", {})
 
     # Discover test callables
@@ -293,5 +296,6 @@ def run_tests(tests_path: str, show_estimates: bool):
         f"{Fore.CYAN}Tests completed: {passed_count}/{total_tests} passed.{Style.RESET_ALL}"
     )
 
-    store_lastrun(test_durations)
+    # Write updated durations to tests_path/.micropytest.json
+    store_lastrun(tests_path, test_durations)
     return test_results

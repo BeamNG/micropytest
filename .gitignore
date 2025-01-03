@@ -114,4 +114,4 @@ docker/*
 # IDE
 .idea
 *.iml
-/.micropytest.json
+.micropytest.json
