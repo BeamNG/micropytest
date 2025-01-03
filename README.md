@@ -332,3 +332,87 @@ test_sub.py::test_something_else                   - PASS in 0.000s
 ```
 
 Enjoy your **micro** yet **mighty** test framework!
+
+# Changelog
+
+## v0.1 - 2025-01-01
+- Initial release
+
+# Developer Guide
+
+## Local Development
+
+If you plan on **making changes** to micropytest (fixing bugs, adding features, etc.) and want to test those changes **locally** before sharing or publishing, follow these steps:
+
+1. **Clone the repository** (or download the source):
+   ```bash
+   git clone https://github.com/BeamNG/micropytest.git
+   cd micropytest
+   ```
+
+2. **Create and activate** a virtual environment (recommended):
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate
+   # (Windows) .venv\Scripts\activate
+   ```
+
+3. **Make changes** in the source code:
+   - Edit files under `micropytest/` (or wherever the main package code lives).
+   - Update docstrings, add tests, etc.
+
+4. **Install locally**:
+    ```bash
+    pip install -e .
+    ```
+
+5. **Test locally**:
+    ```bash
+    micropytest examples
+    ```
+
+
+## Building & Publishing
+
+Once you have **tested and verified** your local changes and are ready to publish your own version of micropytest to [PyPI](https://pypi.org/) (or to a private index, or just for distribution within your team), follow these steps:
+
+1. **Set up** a fresh environment (optional but recommended for a clean slate):
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate
+   # (Windows) .venv\Scripts\activate
+   ```
+
+2. **Install** the necessary build tools (and other dependencies if needed):
+   ```bash
+   pip install build twine colorama
+   ```
+
+3. **Build** the distribution:
+   ```bash
+   python -m build
+   ```
+   - This command will create a `dist/` folder containing the source distribution (`.tar.gz`) and wheel (`.whl`) files.
+
+4. **Upload** to PyPI (or TestPyPI) using [Twine](https://twine.readthedocs.io/):
+   ```bash
+   # For PyPI:
+   twine upload dist/*
+
+   # For TestPyPI (recommended for a dry run):
+   twine upload --repository testpypi dist/*
+   ```
+
+5. **Install & verify**:
+   ```bash
+   pip install micropytest
+   micropytest --version
+   ```
+   - Confirm the installed version matches the one you just published.
+   - Test it in a clean environment to make sure it works as intended.
+
+That’s it! Now your modified version of micropytest is on PyPI (or TestPyPI), and others can install it via:
+
+```bash
+pip install micropytest
+```
