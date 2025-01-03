@@ -64,9 +64,9 @@ def test_db_usage(ctx):
     Also confirms we have the correct MyCustomContext instance.
     """
     # Make sure we're indeed using MyCustomContext
-    if not isinstance(ctx, MyCustomContext):
+    if ctx.__class__.__name__ != "MyCustomContext": # you can also use isinstance if you put the UserContext in a separate file
         # this example might be run with the default context as well
-        return
+        ctx.skip_test("Not the having the custom context")
 
     result = ctx.do_db_query("SELECT * FROM sample_table")
     assert result == "fake_result", "Expected 'fake_result' from do_db_query"
