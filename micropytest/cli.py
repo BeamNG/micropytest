@@ -113,8 +113,11 @@ def console_main():
                 outcome["test"]
             )
 
-            print("{:50s} - {}{} in {:.3f}s".format(
-                testkey, color_status, Style.RESET_ALL, duration_s)
+            duration_str = ""
+            if duration_s > 0.01:
+                duration_str = " in {:.2g} seconds".format(duration_s)
+            print("{:50s} - {}{}{}".format(
+                testkey, color_status, Style.RESET_ALL, duration_str)
             )
 
             if args.verbose:
@@ -153,7 +156,7 @@ def console_main():
     # Total time across all tests
     total_time = sum(o["duration_s"] for o in test_results)
     if total_time > 0.01:
-        summary_chunks.append("{}took {:.2f}s{}".format(Fore.CYAN, total_time, Style.RESET_ALL))
+        summary_chunks.append("{}took {:.2g} seconds{}".format(Fore.CYAN, total_time, Style.RESET_ALL))
 
     if not summary_chunks:
         summary_chunks.append("{}no tests run{}".format(Fore.CYAN, Style.RESET_ALL))

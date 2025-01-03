@@ -42,30 +42,33 @@ print("Test run complete: {}/{} passed".format(passed, total))
 ```
 
 - Each test that accepts a `ctx` parameter gets a **TestContext** object with `.debug()`, `.warn()`, `.add_artifact()`, etc.
-- Results include logs, artifacts, pass/fail status, and **duration**.
+- Results include logs, artifacts, pass/fail/skip status, and **duration**.
 
 ## Differences from pyTest
 
 If you’re coming from pytest:
 
 1. **No fixtures or plugins**
-   - microPyTest is intentionally minimal. Tests can still share state by passing a custom context class if needed.
+
+   microPyTest is intentionally minimal. Tests can still share state by passing a custom context class if needed.
 
 2. **No complex configuration**
-   - There’s no `pytest.ini` or `conftest.py`. Just put your test functions in `test_*.py` or `*_test.py`.
+
+   There’s no `pytest.ini` or `conftest.py`. Just put your test functions in `test_*.py` or `*_test.py`.
 
 3. **Artifact handling is built-in**
-   - `ctx.add_artifact("some_key", value)` can store files or data for later review. No extra plugin required.
+
+   `ctx.add_artifact("some_key", value)` can store files or data for later review. No extra plugin required.
 
 4. **Time estimates for each test**
-   - After each run, `.micropytest.json` is updated with test durations so you’ll see `(est ~1.2s)` next time.
 
 5. **Code-first**
-   - You typically call `run_tests(...)` from Python scripts. The CLI is optional if you prefer it.
+
+   You typically call `run_tests(...)` from Python scripts. The CLI is optional if you prefer it.
 
 ## Quickstart
 
-See the [examples](examples) folder
+See the examples subfolder
 
 ## Optional CLI
 
@@ -89,3 +92,5 @@ micropytest -v my_tests
 - **v0.3** – Added ability to skip tests
 - **v0.2** – Added support for custom context classes
 - **v0.1** – Initial release
+
+Enjoy your **micro** yet **mighty** test runner!

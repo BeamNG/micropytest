@@ -29,6 +29,7 @@ except ImportError:
     Style = _FallbackStyle()
 
 CONFIG_FILE = ".micropytest.json"
+TIME_REPORT_CUTOFF = 0.01 # dont report timings below this
 
 class SkipTest(Exception):
     """
@@ -254,7 +255,7 @@ def run_tests(tests_path,
             sum_known += test_durations.get(key, 0.0)
         if sum_known > 0:
             root_logger.info(
-                "{}Estimated total time: ~{:.1f}s for {} tests{}".format(
+                "{}Estimated total time: ~ {:.2g} seconds for {} tests{}".format(
                     Fore.CYAN, sum_known, total_tests, Style.RESET_ALL
                 )
             )
@@ -272,9 +273,12 @@ def run_tests(tests_path,
         known_dur = test_durations.get(key, 0.0)
 
         if show_estimates:
+            est_str = ''
+            if known_dur > TIME_REPORT_CUTOFF:
+                est_str = " (estimated ~ {:.2g} seconds)".format(known_dur)
             root_logger.info(
-                "{}STARTING: {} (est ~{:.1f}s){}".format(
-                    Fore.CYAN, key, known_dur, Style.RESET_ALL
+                "{}STARTING: {}{}{}".format(
+                    Fore.CYAN, key, est_str, Style.RESET_ALL
                 )
             )
 
@@ -301,9 +305,12 @@ def run_tests(tests_path,
             outcome["duration_s"] = duration
             passed_count += 1
             outcome["status"] = "pass"
+            duration_str = ''
+            if duration > TIME_REPORT_CUTOFF:
+                duration_str = " ({:.2g} seconds)".format(duration)
             root_logger.info(
-                "{}FINISHED PASS: {} ({:.3f}s){}".format(
-                    Fore.GREEN, key, duration, Style.RESET_ALL
+                "{}FINISHED PASS: {}{}{}".format(
+                    Fore.GREEN, key, duration_str, Style.RESET_ALL
                 )
             )
 
