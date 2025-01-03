@@ -31,3 +31,7 @@ def test_with_ctx(ctx):
 
     # A normal assertion
     assert answer == 42
+
+def test_skip(ctx):
+    ctx.skip_test("We never run this test as example")
+

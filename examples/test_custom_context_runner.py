@@ -102,7 +102,7 @@ def test_custom_context_integration():
     )
 
     # Summarize results
-    passed = sum(r["status"] == "pass" for r in results)
+    passed = sum(r["status"] in ["pass", "skip"] for r in results)
     total = len(results)
 
     # Ensure that all tests discovered by the nested run pass

@@ -1,15 +1,3 @@
-# core.py
-"""
-core.py - Contains the core logic for micropytest:
- - test discovery
- - run_tests
- - logging context/handlers
- - storing durations in .micropytest.json
-
-Users who want a programmatic approach can just import run_tests(),
-and won't need to deal with the CLI or argument parsing.
-"""
-
 import logging
 import sys
 import os
@@ -23,7 +11,6 @@ from collections import Counter
 try:
     from pathlib import Path
 except ImportError:
-    # If Python 3.4 doesn't have pathlib, you may need the backport.
     raise ImportError("pathlib is required but not found.")
 
 import importlib.util
@@ -43,6 +30,11 @@ except ImportError:
 
 CONFIG_FILE = ".micropytest.json"
 
+class SkipTest(Exception):
+    """
+    Raised by a test to indicate it should be skipped.
+    """
+    pass
 
 class LiveFlushingStreamHandler(logging.StreamHandler):
     """
@@ -64,7 +56,7 @@ def create_live_console_handler(formatter=None, level=logging.INFO):
 class TestContext:
     """
     A context object passed to each test if it accepts 'ctx'.
-    Allows logging via ctx.debug(), etc. and storing artifacts.
+    Allows logging via ctx.debug(), etc., storing artifacts, and now skipping.
     """
     def __init__(self):
         self.log_records = []
@@ -95,6 +87,12 @@ class TestContext:
         else:
             self.artifacts[key] = {'type': 'primitive', 'value': value}
 
+    def skip_test(self, msg=None):
+        """
+        Tests can call this to be marked as 'skipped', e.g. if the environment
+        doesn't apply or prerequisites are missing.
+        """
+        raise SkipTest(msg or "Test was skipped by ctx.skip_test(...)")
 
 class GlobalContextLogHandler(logging.Handler):
     """
@@ -152,14 +150,12 @@ def load_test_module_by_path(file_path):
 def find_test_files(start_dir="."):
     """
     Recursively find all *.py that match test_*.py or *_test.py,
-    excluding files in typical virtual env or site-packages, etc.
+    excluding typical venv, site-packages, or __pycache__ folders.
     """
     test_files = []
     for root, dirs, files in os.walk(start_dir):
-        # Skip typical venv, site-packages, etc.
         if (".venv" in root) or ("venv" in root) or ("site-packages" in root) or ("__pycache__" in root):
             continue
-
         for f in files:
             if f.startswith("test_") or f.endswith("_test.py"):
                 test_files.append(os.path.join(root, f))
@@ -168,7 +164,7 @@ def find_test_files(start_dir="."):
 
 def load_lastrun(tests_root):
     """
-    Load .micropytest.json from the given tests root (tests_root/.micropytest.json) if present.
+    Load .micropytest.json from the given tests root (tests_root/.micropytest.json), if present.
     Returns a dict with test durations, etc.
     """
     p = Path(tests_root) / CONFIG_FILE
@@ -208,7 +204,7 @@ def run_tests(tests_path,
       2) For each test function test_*,
          - optionally injects a TestContext (or a user-provided subclass)
          - times the test
-         - logs pass/fail
+         - logs pass/fail/skip
       3) Updates .micropytest.json with durations
       4) Returns a list of test results
 
@@ -236,9 +232,7 @@ def run_tests(tests_path,
         try:
             mod = load_test_module_by_path(f)
         except Exception:
-            root_logger.error(
-                "Error importing {}:\n{}".format(f, traceback.format_exc())
-            )
+            root_logger.error("Error importing {}:\n{}".format(f, traceback.format_exc()))
             continue
 
         for attr in dir(mod):
@@ -250,6 +244,7 @@ def run_tests(tests_path,
     total_tests = len(test_funcs)
     test_results = []
     passed_count = 0
+    skipped_count = 0
 
     # Possibly show total estimate
     if show_estimates and total_tests > 0:
@@ -311,6 +306,19 @@ def run_tests(tests_path,
                     Fore.GREEN, key, duration, Style.RESET_ALL
                 )
             )
+
+        except SkipTest as e:
+            duration = time.perf_counter() - t0
+            outcome["duration_s"] = duration
+            outcome["status"] = "skip"
+            skipped_count += 1
+            # We log skip as INFO or WARNING (up to you). Here we use CYAN for a mild notice.
+            root_logger.info(
+                "{}SKIPPED: {} ({:.3f}s) - {}{}".format(
+                    Fore.MAGENTA, key, duration, e, Style.RESET_ALL
+                )
+            )
+
         except Exception:
             duration = time.perf_counter() - t0
             outcome["duration_s"] = duration
@@ -320,15 +328,17 @@ def run_tests(tests_path,
                     Fore.RED, key, duration, traceback.format_exc(), Style.RESET_ALL
                 )
             )
+
         finally:
             root_logger.removeHandler(test_handler)
 
-        test_durations[key] = duration
+        test_durations[key] = outcome["duration_s"]
         test_results.append(outcome)
 
+    # Print final summary
     root_logger.info(
-        "{}Tests completed: {}/{} passed.{}".format(
-            Fore.CYAN, passed_count, total_tests, Style.RESET_ALL
+        "{}Tests completed: {}/{} passed, {} skipped.{}".format(
+            Fore.CYAN, passed_count, total_tests, skipped_count, Style.RESET_ALL
         )
     )
 

@@ -1,26 +1,23 @@
 import os
-import tempfile
+import sys
 
-def test_artifact_exists(ctx):
-    """
-    Creates a temporary file, then adds it as an artifact.
-    Should log that the file DOES exist.
-    """
-    with tempfile.NamedTemporaryFile(delete=False) as tmp:
-        tmp.write(b"Hello, test!")
-        tmp_path = tmp.name
+def test_artifact_str(ctx):
+    ctx.add_artifact("my_string", "hello world")
+    assert True
 
-    # Record the artifact path
-    ctx.add_artifact("tempfile", tmp_path)
+def test_artifact_num(ctx):
+    ctx.add_artifact("my_number", 42)
+    assert True
 
-    # Cleanup explicitly
-    os.remove(tmp_path)
-
+def test_artifact_dict(ctx):
+    ctx.add_artifact("my_dict", {"key": 123})
+    assert True
 
 def test_artifact_missing(ctx):
-    """
-    Adds a random file path as an artifact, which does NOT exist.
-    Should warn that the file does not exist.
-    """
+    # Should log a warning: file does NOT exist
     ctx.add_artifact("non_existent", "/no/such/file/1234.bin")
-    assert True  # pass
+    assert True
+
+def test_submit_current_file(ctx):
+    ctx.add_artifact("current_file", os.path.abspath(__file__))
+    assert True

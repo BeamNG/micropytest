@@ -1,8 +1,3 @@
-"""
-cli.py: Main entry point for micropytest with REAL-TIME console output.
-Imports the core logic from micropytest.core.
-"""
-
 import os
 import sys
 import argparse
@@ -32,7 +27,6 @@ def console_main():
         prog="micropytest",
         description="micropytest - 'pytest but smaller, simpler, and smarter'."
     )
-    # Add a --version flag for quick version check
     parser.add_argument("--version", action="store_true",
                         help="Show micropytest version and exit.")
 
@@ -57,7 +51,7 @@ def console_main():
     live_handler = create_live_console_handler(formatter=live_format)
     root_logger.addHandler(live_handler)
 
-    # Set the level based on -v/-q
+    # Set level based on -v/-q
     if args.verbose:
         root_logger.setLevel(logging.DEBUG)
     elif args.quiet:
@@ -71,79 +65,103 @@ def console_main():
 
     logging.info("micropytest version: {}".format(__version__))
 
-    # Call our core runner
+    # Run tests
     test_results = run_tests(tests_path=args.path, show_estimates=show_estimates)
 
-    if args.quiet:
-        # Summarize quietly
-        passed = sum(r["status"] == "pass" for r in test_results)
-        total = len(test_results)
-        log_counter = Counter()
-        for outcome in test_results:
-            for (lvl, msg) in outcome["logs"]:
-                log_counter[lvl] += 1
-        warnings_count = log_counter["WARNING"]
-        errors_count = log_counter["ERROR"] + log_counter["CRITICAL"]
+    # Count outcomes
+    passed = sum(r["status"] == "pass" for r in test_results)
+    skipped = sum(r["status"] == "skip" for r in test_results)
+    total = len(test_results)
+    failed = total - (passed + skipped)
 
-        if total > 0:
-            pct_pass = int((passed / float(total)) * 100)
-        else:
-            pct_pass = 0
-
-        if pct_pass == 100:
-            pct_color = Fore.GREEN
-        elif pct_pass > 50:
-            pct_color = Fore.YELLOW
-        else:
-            pct_color = Fore.RED
-
-        ratio_str = "{}{}/{}{}".format(pct_color, passed, total, Style.RESET_ALL)
-        pct_str = "{}{}%{}".format(pct_color, pct_pass, Style.RESET_ALL)
-
-        text = "Tests: {} passed ({}) - ".format(pct_str, ratio_str)
-        warn_err_text = []
-        if warnings_count > 0:
-            warn_err_text.append("{}{} warnings{}".format(Fore.YELLOW, warnings_count, Style.RESET_ALL))
-        if errors_count > 0:
-            warn_err_text.append("{}{} errors{}".format(Fore.RED, errors_count, Style.RESET_ALL))
-        if not warn_err_text:
-            warn_err_text.append("{}All perfect :){}".format(Fore.GREEN, Style.RESET_ALL))
-
-        text += ", ".join(warn_err_text)
-        print(text)
-        return
-
-    # Otherwise, the final fancy ASCII summary
-    print(r"""
-        _____    _______        _
-       |  __ \  |__   __|      | |
-  _   _| |__) |   _| | ___  ___| |_
- | | | |  ___/ | | | |/ _ \/ __| __|
- | |_| | |   | |_| | |  __/\__ \ |_
- | ._,_|_|    \__, |_|\___||___/\__|
- | |           __/ |
- |_|          |___/           Report
- """)
-
+    # Tally warnings/errors from logs
+    log_counter = Counter()
     for outcome in test_results:
-        status = outcome["status"]
-        if status == "pass":
-            color_status = Fore.GREEN + "PASS"
-        else:
-            color_status = Fore.RED + "FAIL"
+        for (lvl, msg) in outcome["logs"]:
+            log_counter[lvl] += 1
+    warnings_count = log_counter["WARNING"]
+    errors_count   = log_counter["ERROR"] + log_counter["CRITICAL"]
 
-        duration_s = outcome["duration_s"]
-        # Replace f-string with .format()
-        testkey = "{}::{}".format(
-            os.path.basename(outcome["file"]),
-            outcome["test"]
-        )
+    # If quiet, produce a concise summary
+    if not args.quiet:
+        # Otherwise, show the fancy ASCII summary
+        print(r"""
+            _____    _______        _
+        |  __ \  |__   __|      | |
+    _   _| |__) |   _| | ___  ___| |_
+    | | | |  ___/ | | | |/ _ \/ __| __|
+    | |_| | |   | |_| | |  __/\__ \ |_
+    | ._,_|_|    \__, |_|\___||___/\__|
+    | |           __/ |
+    |_|          |___/           Report
+    """)
 
-        print("{:50s} - {}{} in {:.3f}s".format(testkey, color_status, Style.RESET_ALL, duration_s))
+        # Per-test line
+        for outcome in test_results:
+            status = outcome["status"]
+            if status == "pass":
+                color_status = Fore.GREEN + "PASS"
+            elif status == "skip":
+                color_status = Fore.MAGENTA + "SKIP"
+            else:
+                color_status = Fore.RED + "FAIL"
 
-        if args.verbose:
-            for (lvl, msg) in outcome["logs"]:
-                print("  {}".format(msg))
-            if outcome["artifacts"]:
-                print("  Artifacts: {}".format(outcome["artifacts"]))
-            print()
+            duration_s = outcome["duration_s"]
+            testkey = "{}::{}".format(
+                os.path.basename(outcome["file"]),
+                outcome["test"]
+            )
+
+            print("{:50s} - {}{} in {:.3f}s".format(
+                testkey, color_status, Style.RESET_ALL, duration_s)
+            )
+
+            # If verbose, print logs/artifacts
+            if args.verbose:
+                for (lvl, msg) in outcome["logs"]:
+                    print("  {}".format(msg))
+                if outcome["artifacts"]:
+                    print("  Artifacts: {}".format(outcome["artifacts"]))
+                print()
+
+    # Build final summary line
+    # Helper to handle singular/plural forms
+    def plural(count, singular, plural_form):
+        return singular if count == 1 else plural_form
+
+    total_str = "{} {}".format(total, plural(total, "test", "tests"))
+
+    # Build list for pass/skip/fail/warnings/errors/time
+    summary_chunks = []
+    if passed > 0:
+        summary_chunks.append("{}{} passed{}".format(Fore.GREEN, passed, Style.RESET_ALL))
+    if skipped > 0:
+        summary_chunks.append("{}{} skipped{}".format(Fore.MAGENTA, skipped, Style.RESET_ALL))
+    if failed > 0:
+        summary_chunks.append("{}{} failed{}".format(Fore.RED, failed, Style.RESET_ALL))
+    if warnings_count > 0:
+        summary_chunks.append("{}{} warning{}{}".format(
+            Fore.YELLOW, warnings_count,
+            "" if warnings_count == 1 else "s",
+            Style.RESET_ALL
+        ))
+    if errors_count > 0:
+        summary_chunks.append("{}{} error{}{}".format(
+            Fore.RED, errors_count,
+            "" if errors_count == 1 else "s",
+            Style.RESET_ALL
+        ))
+
+    # Calculate total test time
+    total_time = sum(o["duration_s"] for o in test_results)
+    if total_time > 0.01:
+        summary_chunks.append("{}took {:.2f}s{}".format(
+            Fore.CYAN, total_time, Style.RESET_ALL
+        ))
+
+    # If no tests
+    if not summary_chunks:
+        summary_chunks.append("{}no tests run{}".format(Fore.CYAN, Style.RESET_ALL))
+
+    # Final summary e.g. "Summary: 4 tests => 3 passed, 1 failed, took 0.13s"
+    print("Summary: {} => {}".format(total_str, ", ".join(summary_chunks)))

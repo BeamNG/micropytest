@@ -86,5 +86,6 @@ micropytest -v my_tests
 
 ## Changelog
 
+- **v0.3** – Added ability to skip tests
 - **v0.2** – Added support for custom context classes
 - **v0.1** – Initial release
