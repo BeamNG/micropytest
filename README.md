@@ -1,35 +1,35 @@
 # microPyTest
 
-A minimal, **“pytest-like”** testing framework designed to help you **test anything using Python**.
-It works by:
+A minimal, **“pytest-like”** testing framework designed to help you **test anything using Python** while focusing on:
 
-- Discovering test files that match `test_*.py` or `*_test.py`
-- Running each test function in real time (with immediate logs)
-- Injecting a **test context** (`ctx`) that provides logging methods and artifact tracking
-- **Storing per-test durations** in `.micropytest.json` for future **time estimates**
-- Offering **quiet** or **verbose** CLI modes
-
-**Current version**: `micropytest version: X.Y.Z` (logged at startup)
-
-> **Note**: Since micropytest can be used to test **anything** via Python scripts, it’s useful for test tasks like:
-> - Calling external APIs and verifying responses
-> - Testing local scripts or command-line tools
-> - Running hardware or network checks
-> - Any scenario where Python can orchestrate or verify results, *not* just Python libraries
+- **Simplicity & minimal configuration**
+- **Real-time** console logs and immediate feedback
+- Built-in **artifact tracking** and duration-based **time estimates**
 
 ---
 
-## Table of Contents
+## Why micropytest?
 
-1. [Installation](#installation)
-2. [CLI Usage](#cli-usage)
-3. [Features & Highlights](#features--highlights)
-4. [Writing Tests](#writing-tests)
-5. [Running Tests Programmatically (No CLI)](#running-tests-programmatically-no-cli)
-6. [About `.micropytest.json`](#about-micropytestjson)
-7. [Example Output](#example-output)
+While [pytest](https://docs.pytest.org) is a powerful and well-established test framework, micropytest has a **narrower**, **lighter** scope and a **different philosophy**:
 
----
+1. **No heavy config or plugins**
+   - micropytest aims for “just run the tests.” Put your test functions in `test_*.py` or `*_test.py`, and you’re good to go—no `pytest.ini` or conftest overhead.
+
+2. **Artifact Tracking & Context**
+   - Each test can receive a **test context** (`ctx`) that provides `ctx.debug()`, `ctx.warn()`, etc. **plus** an easy way to record artifacts (`ctx.add_artifact(...)`).
+   - This is **built-in**, so you don’t need plugins or extra steps to track test-related files or metadata.
+
+3. **Real-time Logs**
+   - micropytest flushes logs **immediately** (so you see them as they happen). Pytest also captures logs, but micropytest is specifically optimized for real-time feedback in simpler, custom test scenarios (e.g., hardware tests, external integrations).
+
+4. **Time Estimates**
+   - Each test’s runtime is saved in `.micropytest.json`. Next run, you’ll see estimates like “(est ~0.5s)” so you can get a sense of your overall test duration.
+   - Great if you have a large number of tests or tests that call external APIs/hardware.
+
+5. **Low overhead, direct**
+   - You can programmatically run micropytest (`run_tests(...)` function) or invoke the CLI. No advanced plugin system or advanced hooking needed—just Python code.
+
+If you need **rich** features like advanced parameterization, detailed fixtures, or a vast ecosystem of plugins, pytest is still your best friend. But if you want a **tiny** runner that does the basics well, tries to be friendly and “just works,” micropytest might be for you!
 
 ## Installation
 
@@ -41,8 +41,6 @@ pip install micropytest
 
 This will make the `micropytest` command available in your current Python environment.
 
----
-
 ## CLI Usage
 
 From the root of your project (or any directory containing tests):
@@ -53,8 +51,8 @@ micropytest [OPTIONS] [PATH]
 
 **Options**:
 
-- **`-v, --verbose`**: Increase logging verbosity (e.g., show debug messages).
-- **`-q, --quiet`**: Quiet mode—only a colorized summary at the end.
+- **`-v, --verbose`**: Increase logging verbosity (show debug messages, artifacts, etc.).
+- **`-q, --quiet`**: Quiet mode—only a colorized summary at the end, no real-time logs.
 
 If you **omit** the path, `micropytest` defaults to the **current directory** (`.`).
 
@@ -68,41 +66,50 @@ micropytest -q /path/to/tests
 
 Watch the **live** logs as each test starts, logs messages, and finishes with a summary.
 
----
-
 ## Features & Highlights
 
 1. **Real-time Console Output**
-   - A special “live” log handler flushes output **immediately**, so you see logs as they happen (no waiting for buffers).
+   A special “live” log handler flushes output **immediately**, so you see logs as they happen (no waiting for buffers).
 
 2. **Test Discovery**
-   - Recursively scans for files named `test_*.py` or `*_test.py`, and for each Python function named `test_*`.
+   Recursively scans for files named `test_*.py` or `*_test.py`, and for each Python function named `test_*`.
 
 3. **Test Context (`ctx`)**
-   - If your test function is defined with a parameter, e.g. `def test_something(ctx):`, micropytest will pass in a `TestContext`.
-   - The context offers logging shortcuts (`ctx.debug()`, `ctx.warn()`, etc.) and **artifact tracking** (recording files or data for later review).
+   - If your test function has a parameter, e.g., `def test_something(ctx):`, micropytest **injects** a `TestContext`.
+   - The context offers logging shortcuts (`ctx.debug()`, `ctx.warn()`, etc.) and **artifact tracking** (`ctx.add_artifact(...)`).
 
 4. **Per-Test Durations**
-   - After each test, micropytest logs its exact runtime and stores it in `.micropytest.json`.
-   - Future runs use that stored duration to **estimate** how long each test might take.
+   - After each test, micropytest logs its runtime and stores it in `.micropytest.json`.
+   - Future runs use that data for **time estimates** (e.g., “(est ~0.8s)”).
 
 5. **Quiet & Verbose Modes**
-   - **Quiet mode**: minimal final summary only (handy for CI or quick checks).
-   - **Verbose mode**: additional debug output per test, plus all logs in real time.
+   - **Quiet mode**: minimal final summary only.
+   - **Verbose mode**: extra debug logs per test, including artifacts.
 
 6. **Colorful Output**
    - Uses [**colorama**](https://pypi.org/project/colorama/) (if installed) to color warnings, errors, passes/fails, etc.
-   - Falls back to plain text if colorama is unavailable.
+   - Falls back to plain text if colorama isn’t available.
+
+---
+
+## What’s Different from Pytest?
+
+- **No large ecosystem of plugins**—just straightforward features in a single package.
+- **Built-in artifact handling**—pytest can do this with plugins or custom code, but micropytest makes it **central**.
+- **Immediate flushing**—pytest can capture logs, but micropytest specifically **flushes** after each log to give you **instant** feedback.
+- **Simple configuration**—no `pytest.ini`, no conftest magic.
+- **Time estimates** out of the box.
+- **No advanced fixtures**—micropytest is intentionally minimal.
+
+If you need advanced pytest fixtures or plugin ecosystems, **pytest** is probably the better solution. But for small, script-based testing scenarios where you want real-time logs and minimal overhead, **micropytest** is a great fit.
 
 ---
 
 ## Writing Tests
 
-Below is a quick overview of **how to write your tests** for micropytest, including **logging**, **asserts**, and **artifacts**.
-
 ### 1. Creating Test Files
 
-Place your tests in files named `test_*.py` or `*_test.py`, anywhere in your project. For example:
+Place your tests in files named `test_*.py` or `*_test.py`, anywhere in your project.
 
 ```
 my_project/
@@ -112,7 +119,7 @@ my_project/
     └── ...
 ```
 
-As soon as you run `micropytest`, it will **automatically** discover these test files.
+micropytest will automatically discover these test files.
 
 ### 2. Defining Test Functions
 
@@ -181,15 +188,12 @@ Artifacts let you **record** additional data—like files or JSON objects—that
 
 ```python
 def test_artifacts(ctx):
-    # For example, check if a file exists
-    filepath = "my_data.txt"
-    ctx.add_artifact("data_file", filepath)
-
-    # If 'my_data.txt' does NOT exist, you'll see a warning in the logs
-    # (and you can choose to fail the test if needed)
+    filepath = "data.csv"
+    ctx.add_artifact("my_data", filepath)
+    # If data.csv doesn't exist, you'll see a warning in real-time logs.
 ```
 
-**Artifacts** appear in the final logs (verbose mode) or can be extracted programmatically after the run. They are purely for your convenience—micropytest doesn’t enforce pass/fail on artifact existence unless you want to (you can raise exceptions if a file is missing).
+Artifacts appear in the **verbose** summary and can be parsed by custom tools if you process the results programmatically.
 
 ---
 
@@ -219,19 +223,19 @@ def custom_test_run():
     # Summarize
     passed = sum(1 for r in results if r["status"] == "pass")
     total = len(results)
-    print(f"Programmatic run: {passed}/{total} tests passed!")
+    print("Programmatic run: {}/{} tests passed!".format(passed, total))
 
 if __name__ == "__main__":
     custom_test_run()
 ```
 
-By setting up appropriate **logging handlers** in your code, you can also see real-time logs in your own custom environment.
+This can be useful if you want to incorporate micropytest into a larger Python script or custom pipeline, **without** using the CLI.
 
 ---
 
 ## About `.micropytest.json`
 
-A file named **`.micropytest.json`** (in your project directory) tracks **test durations** between runs:
+Micropytest saves **per-test durations** in a file named `.micropytest.json` at the root of your test folder. For example:
 
 ```json
 {
@@ -243,15 +247,16 @@ A file named **`.micropytest.json`** (in your project directory) tracks **test d
 }
 ```
 
-- Each **key** is `filepath::test_function`, mapping to the **most recent** runtime in seconds.
-- On subsequent runs, micropytest uses these durations to guess how long each test might take, printing estimates such as `est ~0.8s`.
-- Deleting or ignoring this file simply means you lose time-based estimates (the framework still runs tests normally).
+- **Keys** are `"file_path::test_function"`.
+- **Values** are runtime durations (in seconds) from your last run.
+- Micropytest uses these to **estimate** how long tests might take on subsequent runs.
+- You can **remove** or **ignore** `.micropytest.json` if you don’t care about estimates.
 
 ---
 
 ## Example Output
 
-Here’s an example **verbose** run:
+Here’s an example **verbose** run (shortened):
 
 ```bash
 micropytest -v examples
@@ -267,18 +272,7 @@ You might see:
 19:05:38 INFO    |root       | FINISHED PASS: examples\test_artifacts.py::test_artifact_exists (0.001s)
 19:05:38 INFO    |root       | STARTING: examples\test_artifacts.py::test_artifact_missing (est ~0.0s)
 19:05:38 WARNING |root       | Artifact file '/no/such/file/1234.bin' does NOT exist.
-19:05:38 INFO    |root       | FINISHED PASS: examples\test_artifacts.py::test_artifact_missing (0.000s)
-19:05:38 INFO    |root       | STARTING: examples\test_demo.py::test_long (est ~0.5s)
-19:05:39 INFO    |root       | FINISHED PASS: examples\test_demo.py::test_long (0.500s)
-19:05:39 INFO    |root       | STARTING: examples\test_demo.py::test_long2 (est ~1.0s)
-19:05:40 INFO    |root       | FINISHED PASS: examples\test_demo.py::test_long2 (1.000s)
-19:05:40 INFO    |root       | STARTING: examples\test_demo.py::test_no_ctx (est ~0.0s)
-19:05:40 INFO    |root       | FINISHED PASS: examples\test_demo.py::test_no_ctx (0.000s)
-19:05:40 INFO    |root       | STARTING: examples\test_demo.py::test_with_ctx (est ~0.0s)
-19:05:40 INFO    |root       | FINISHED PASS: examples\test_demo.py::test_with_ctx (0.000s)
-19:05:40 INFO    |root       | STARTING: examples\subfolder\test_sub.py::test_something_else (est ~0.0s)
-19:05:40 INFO    |root       | Standard Python logging used here.
-19:05:40 INFO    |root       | FINISHED PASS: examples\subfolder\test_sub.py::test_something_else (0.000s)
+...
 19:05:40 INFO    |root       | Tests completed: 7/7 passed.
 
         _____    _______        _
@@ -290,30 +284,7 @@ You might see:
  | |           __/ |
  |_|          |___/           Report
 
-test_artifacts.py::test_artifact_exists            - PASS in 0.001s
-  19:05:38 INFO    |root       | STARTING: examples\test_artifacts.py::test_artifact_exists (est ~0.0s)
-  19:05:38 DEBUG   |root       | Artifact file 'tmpwkbz6y9m' exists.
-  19:05:38 INFO    |root       | FINISHED PASS: examples\test_artifacts.py::test_artifact_exists (0.001s)
-  Artifacts: {'tempfile': {'type': 'filename', 'value': 'tmpwkbz6y9m'}}
-
-test_artifacts.py::test_artifact_missing           - PASS in 0.000s
-  19:05:38 INFO    |root       | STARTING: examples\test_artifacts.py::test_artifact_missing (est ~0.0s)
-  19:05:38 WARNING |root       | Artifact file '/no/such/file/1234.bin' does NOT exist.
-  19:05:38 INFO    |root       | FINISHED PASS: examples\test_artifacts.py::test_artifact_missing (0.000s)
-  Artifacts: {'non_existent': {'type': 'filename', 'value': '/no/such/file/1234.bin'}}
-
-test_demo.py::test_long                            - PASS in 0.500s
-  19:05:38 INFO    |root       | STARTING: examples\test_demo.py::test_long (est ~0.5s)
-  19:05:39 INFO    |root       | FINISHED PASS: examples\test_demo.py::test_long (0.500s)
-
-test_demo.py::test_long2                           - PASS in 1.000s
-  19:05:39 INFO    |root       | STARTING: examples\test_demo.py::test_long2 (est ~1.0s)
-  19:05:40 INFO    |root       | FINISHED PASS: examples\test_demo.py::test_long2 (1.000s)
-
-test_demo.py::test_no_ctx                          - PASS in 0.000s
-  19:05:40 INFO    |root       | STARTING: examples\test_demo.py::test_no_ctx (est ~0.0s)
-  19:05:40 INFO    |root       | FINISHED PASS: examples\test_demo.py::test_no_ctx (0.000s)
-
+...
 test_demo.py::test_with_ctx                        - PASS in 0.000s
   19:05:40 INFO    |root       | STARTING: examples\test_demo.py::test_with_ctx (est ~0.0s)
   19:05:40 DEBUG   |root       | Starting test_with_ctx
@@ -331,16 +302,18 @@ test_sub.py::test_something_else                   - PASS in 0.000s
 
 ```
 
-Enjoy your **micro** yet **mighty** test framework!
+---
 
-# Changelog
+## Changelog
 
-## v0.1 - 2025-01-01
-- Initial release
+### v0.1 - 2025-01-01
+- Initial release.
 
-# Developer Guide
+---
 
-## Local Development
+## Developer Guide
+
+### Local Development
 
 If you plan on **making changes** to micropytest (fixing bugs, adding features, etc.) and want to test those changes **locally** before sharing or publishing, follow these steps:
 
@@ -358,7 +331,7 @@ If you plan on **making changes** to micropytest (fixing bugs, adding features, 
    ```
 
 3. **Make changes** in the source code:
-   - Edit files under `micropytest/` (or wherever the main package code lives).
+   - Edit files under `micropytest/`.
    - Update docstrings, add tests, etc.
 
 4. **Install locally**:
@@ -371,19 +344,18 @@ If you plan on **making changes** to micropytest (fixing bugs, adding features, 
     micropytest examples
     ```
 
+### Building & Publishing
 
-## Building & Publishing
+Once you have **tested** your changes and are ready to publish your version of micropytest to [PyPI](https://pypi.org/) (or to a private index), follow these steps:
 
-Once you have **tested and verified** your local changes and are ready to publish your own version of micropytest to [PyPI](https://pypi.org/) (or to a private index, or just for distribution within your team), follow these steps:
-
-1. **Set up** a fresh environment (optional but recommended for a clean slate):
+1. **Set up** a fresh environment (optional but recommended):
    ```bash
    python -m venv .venv
    source .venv/bin/activate
    # (Windows) .venv\Scripts\activate
    ```
 
-2. **Install** the necessary build tools (and other dependencies if needed):
+2. **Install** build tools:
    ```bash
    pip install build twine colorama
    ```
@@ -392,14 +364,14 @@ Once you have **tested and verified** your local changes and are ready to publis
    ```bash
    python -m build
    ```
-   - This command will create a `dist/` folder containing the source distribution (`.tar.gz`) and wheel (`.whl`) files.
+   This creates a `dist/` folder with `.tar.gz` and `.whl` files.
 
-4. **Upload** to PyPI (or TestPyPI) using [Twine](https://twine.readthedocs.io/):
+4. **Upload** with [Twine](https://twine.readthedocs.io/):
    ```bash
    # For PyPI:
    twine upload dist/*
 
-   # For TestPyPI (recommended for a dry run):
+   # For TestPyPI:
    twine upload --repository testpypi dist/*
    ```
 
@@ -408,11 +380,14 @@ Once you have **tested and verified** your local changes and are ready to publis
    pip install micropytest
    micropytest --version
    ```
-   - Confirm the installed version matches the one you just published.
-   - Test it in a clean environment to make sure it works as intended.
+   Check that the installed version matches what you published.
 
-That’s it! Now your modified version of micropytest is on PyPI (or TestPyPI), and others can install it via:
+That’s it! Now your modified version of micropytest is on PyPI (or TestPyPI). Others can install it with:
 
 ```bash
 pip install micropytest
 ```
+
+---
+
+Enjoy your **micro** yet **mighty** testing framework!
