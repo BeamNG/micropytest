@@ -8,9 +8,7 @@ while preventing infinite recursion. Also shows how to:
 2. Provide a shared resource (e.g., a DB connection).
 3. Add utility methods to the context (e.g., ctx.do_something()).
 4. Exclude this file from re-discovery using an environment variable.
-
-Usage:
-  micropytest  (will discover this test, which calls run_tests on other tests)
+5. Confirm that we're actually using the correct custom context.
 """
 
 import os
@@ -58,6 +56,20 @@ class MyCustomContext(micropytest.core.TestContext):
         # result = self.db_conn.execute(query)
         # return result
         return "fake_result"
+
+
+def test_db_usage(ctx):
+    """
+    A simple test that demonstrates usage of ctx.do_db_query().
+    Also confirms we have the correct MyCustomContext instance.
+    """
+    # Make sure we're indeed using MyCustomContext
+    if not isinstance(ctx, MyCustomContext):
+        # this example might be run with the default context as well
+        return
+
+    result = ctx.do_db_query("SELECT * FROM sample_table")
+    assert result == "fake_result", "Expected 'fake_result' from do_db_query"
 
 
 def test_custom_context_integration():
