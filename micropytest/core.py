@@ -141,11 +141,16 @@ def load_test_module_by_path(file_path):
 
 def find_test_files(start_dir="."):
     """
-    Recursively find all *.py that match test_*.py or *_test.py.
+    Recursively find all *.py that match test_*.py or *_test.py,
+    excluding files in virtual environment or site-packages folders.
     """
     start_path = Path(start_dir)
     test_files = []
-    for pyfile in start_path.glob("**/*.py"):
+    for pyfile in start_path.rglob("*.py"):
+        parts = set(pyfile.parts)
+        # Skip typical venv or site-packages directories
+        if (".venv" in parts or "venv" in parts or "site-packages" in parts):
+            continue
         name = pyfile.name
         if name.startswith("test_") or name.endswith("_test.py"):
             test_files.append(str(pyfile))
