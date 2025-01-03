@@ -2,7 +2,7 @@
 
 **microPyTest** is a minimal, pure python-based test runner that you can use directly in code.
 
-![screenshot.png](misc/screenshot.png)
+![screenshot.png](docs/screenshot.png)
 
 ## Key Points
 
