@@ -12,14 +12,24 @@ and won't need to deal with the CLI or argument parsing.
 
 import logging
 import sys
+import os
 import json
 import traceback
 import inspect
 import time
-from pathlib import Path
-import importlib.util
 from datetime import datetime
 from collections import Counter
+
+try:
+    from pathlib import Path
+except ImportError:
+    # If Python 3.4 doesn't have pathlib by default in your environment,
+    # you may need a backport (e.g. 'pip install pathlib').
+    # But Python 3.4 *should* include pathlib in the standard library.
+    raise ImportError("pathlib is required but not found. Install it or upgrade your Python version.")
+
+import importlib.util
+
 from . import __version__
 
 try:
@@ -40,8 +50,8 @@ class LiveFlushingStreamHandler(logging.StreamHandler):
     """
     A stream handler that flushes logs immediately, giving real-time console output.
     """
-    def emit(self, record: logging.LogRecord):
-        super().emit(record)
+    def emit(self, record):
+        super(LiveFlushingStreamHandler, self).emit(record)
         self.flush()
 
 
@@ -63,26 +73,27 @@ class TestContext:
         self.log = logging.getLogger()
         self.artifacts = {}
 
-    def debug(self, msg: str):
+    def debug(self, msg):
         self.log.debug(msg)
 
-    def warn(self, msg: str):
+    def warn(self, msg):
         self.log.warning(msg)
 
-    def error(self, msg: str):
+    def error(self, msg):
         self.log.error(msg)
 
-    def fatal(self, msg: str):
+    def fatal(self, msg):
         self.log.critical(msg)
 
     def add_artifact(self, key, value):
+        # In Python 3.4, pathlib.Path exists, but let's be careful about f-strings
         from pathlib import Path
         if isinstance(value, (str, Path)):
             path_val = Path(value)
             if path_val.is_file():
-                self.debug(f"Artifact file '{value}' exists.")
+                self.debug("Artifact file '{}' exists.".format(value))
             else:
-                self.warn(f"Artifact file '{value}' does NOT exist.")
+                self.warn("Artifact file '{}' does NOT exist.".format(value))
             self.artifacts[key] = {'type': 'filename', 'value': value}
         else:
             self.artifacts[key] = {'type': 'primitive', 'value': value}
@@ -93,13 +104,13 @@ class GlobalContextLogHandler(logging.Handler):
     A handler that captures all logs into a single test's context log_records,
     so we can show them in a final summary or store them.
     """
-    def __init__(self, ctx: TestContext, formatter=None):
-        super().__init__()
+    def __init__(self, ctx, formatter=None):
+        logging.Handler.__init__(self)
         self.ctx = ctx
         if formatter:
             self.setFormatter(formatter)
 
-    def emit(self, record: logging.LogRecord):
+    def emit(self, record):
         msg = self.format(record)
         self.ctx.log_records.append((record.levelname, msg))
 
@@ -109,7 +120,7 @@ class SimpleLogFormatter(logging.Formatter):
     Format logs with a timestamp and color-coded level, e.g.:
     HH:MM:SS LEVEL|LOGGER| message
     """
-    def format(self, record: logging.LogRecord) -> str:
+    def format(self, record):
         tstamp = datetime.now().strftime("%H:%M:%S")
         level = record.levelname
         origin = record.name
@@ -126,7 +137,9 @@ class SimpleLogFormatter(logging.Formatter):
         else:
             color = ""
 
-        return f"{color}{tstamp} {level:8s}|{origin:11s}| {message}{Style.RESET_ALL}"
+        return "{}{} {:8s}|{:11s}| {}{}".format(
+            color, tstamp, level, origin, message, Style.RESET_ALL
+        )
 
 
 def load_test_module_by_path(file_path):
@@ -142,22 +155,23 @@ def load_test_module_by_path(file_path):
 def find_test_files(start_dir="."):
     """
     Recursively find all *.py that match test_*.py or *_test.py,
-    excluding files in virtual environment or site-packages folders.
+    excluding files in typical virtual environment or site-packages folders,
+    using os.walk for Python 3.4 compatibility (rglob is 3.5+).
     """
-    start_path = Path(start_dir)
     test_files = []
-    for pyfile in start_path.rglob("*.py"):
-        parts = set(pyfile.parts)
-        # Skip typical venv or site-packages directories
-        if (".venv" in parts or "venv" in parts or "site-packages" in parts):
+    for root, dirs, files in os.walk(start_dir):
+        # Exclude certain directories
+        if (".venv" in root) or ("venv" in root) or ("site-packages" in root) or ('__pycache__' in root):
+            # Skip processing this folder
             continue
-        name = pyfile.name
-        if name.startswith("test_") or name.endswith("_test.py"):
-            test_files.append(str(pyfile))
+
+        for f in files:
+            if f.startswith("test_") or f.endswith("_test.py"):
+                test_files.append(os.path.join(root, f))
     return test_files
 
 
-def load_lastrun(tests_root: str):
+def load_lastrun(tests_root):
     """
     Load .micropytest.json from the given tests root (tests_root/.micropytest.json) if present.
     Returns a dict with test durations, etc.
@@ -172,12 +186,12 @@ def load_lastrun(tests_root: str):
     return {}
 
 
-def store_lastrun(tests_root: str, test_durations):
+def store_lastrun(tests_root, test_durations):
     """
     Write out test durations to tests_root/.micropytest.json.
     """
     data = {
-        "_comment": "This file is optional: it stores data about the last run of tests for doing time estimates.",
+        "_comment": "This file is optional: it stores data about the last run of tests for time estimates.",
         "micropytest_version": __version__,
         "test_durations": test_durations
     }
@@ -189,7 +203,7 @@ def store_lastrun(tests_root: str, test_durations):
         pass
 
 
-def run_tests(tests_path: str, show_estimates: bool):
+def run_tests(tests_path, show_estimates):
     """
     The core function that:
       1) Discovers test_*.py
@@ -207,7 +221,7 @@ def run_tests(tests_path: str, show_estimates: bool):
 
     formatter = SimpleLogFormatter()
 
-    # Load known durations from tests_path/.micropytest.json
+    # Load known durations
     lastrun_data = load_lastrun(tests_path)
     test_durations = lastrun_data.get("test_durations", {})
 
@@ -218,7 +232,9 @@ def run_tests(tests_path: str, show_estimates: bool):
         try:
             mod = load_test_module_by_path(f)
         except Exception:
-            root_logger.error(f"Error importing {f}:\n{traceback.format_exc()}")
+            root_logger.error(
+                "Error importing {}:\n{}".format(f, traceback.format_exc())
+            )
             continue
 
         for attr in dir(mod):
@@ -235,27 +251,31 @@ def run_tests(tests_path: str, show_estimates: bool):
     if show_estimates and total_tests > 0:
         sum_known = 0.0
         for (fpath, tname, _) in test_funcs:
-            key = f"{fpath}::{tname}"
+            key = "{}::{}".format(fpath, tname)
             sum_known += test_durations.get(key, 0.0)
         if sum_known > 0:
             root_logger.info(
-                f"{Fore.CYAN}Estimated total time: ~{sum_known:.1f}s for {total_tests} tests{Style.RESET_ALL}"
+                "{}Estimated total time: ~{:.1f}s for {} tests{}".format(
+                    Fore.CYAN, sum_known, total_tests, Style.RESET_ALL
+                )
             )
 
     # Run each test
-    for (idx, (file_path, test_name, test_func)) in enumerate(test_funcs, start=1):
+    for idx, (file_path, test_name, test_func) in enumerate(test_funcs, start=1):
         ctx = TestContext()
 
         # attach a log handler for this test
         test_handler = GlobalContextLogHandler(ctx, formatter=formatter)
         root_logger.addHandler(test_handler)
 
-        key = f"{file_path}::{test_name}"
+        key = "{}::{}".format(file_path, test_name)
         known_dur = test_durations.get(key, 0.0)
 
         if show_estimates:
             root_logger.info(
-                f"{Fore.CYAN}STARTING: {key} (est ~{known_dur:.1f}s){Style.RESET_ALL}"
+                "{}STARTING: {} (est ~{:.1f}s){}".format(
+                    Fore.CYAN, key, known_dur, Style.RESET_ALL
+                )
             )
 
         sig = inspect.signature(test_func)
@@ -282,14 +302,18 @@ def run_tests(tests_path: str, show_estimates: bool):
             passed_count += 1
             outcome["status"] = "pass"
             root_logger.info(
-                f"{Fore.GREEN}FINISHED PASS: {key} ({duration:.3f}s){Style.RESET_ALL}"
+                "{}FINISHED PASS: {} ({:.3f}s){}".format(
+                    Fore.GREEN, key, duration, Style.RESET_ALL
+                )
             )
         except Exception:
             duration = time.perf_counter() - t0
             outcome["duration_s"] = duration
             outcome["status"] = "fail"
             root_logger.error(
-                f"{Fore.RED}FINISHED FAIL: {key} ({duration:.3f}s)\n{traceback.format_exc()}{Style.RESET_ALL}"
+                "{}FINISHED FAIL: {} ({:.3f}s)\n{}{}".format(
+                    Fore.RED, key, duration, traceback.format_exc(), Style.RESET_ALL
+                )
             )
         finally:
             root_logger.removeHandler(test_handler)
@@ -298,9 +322,11 @@ def run_tests(tests_path: str, show_estimates: bool):
         test_results.append(outcome)
 
     root_logger.info(
-        f"{Fore.CYAN}Tests completed: {passed_count}/{total_tests} passed.{Style.RESET_ALL}"
+        "{}Tests completed: {}/{} passed.{}".format(
+            Fore.CYAN, passed_count, total_tests, Style.RESET_ALL
+        )
     )
 
-    # Write updated durations to tests_path/.micropytest.json
+    # Write updated durations
     store_lastrun(tests_path, test_durations)
     return test_results

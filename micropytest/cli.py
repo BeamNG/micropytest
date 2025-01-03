@@ -61,6 +61,7 @@ def console_main():
     if args.verbose:
         root_logger.setLevel(logging.DEBUG)
     elif args.quiet:
+        # Log level above CRITICAL => effectively no logs
         root_logger.setLevel(logging.CRITICAL + 1)
     else:
         root_logger.setLevel(logging.INFO)
@@ -68,7 +69,7 @@ def console_main():
     # Show estimates only if not quiet
     show_estimates = not args.quiet
 
-    logging.info(f"micropytest version: {__version__}")
+    logging.info("micropytest version: {}".format(__version__))
 
     # Call our core runner
     test_results = run_tests(tests_path=args.path, show_estimates=show_estimates)
@@ -85,7 +86,7 @@ def console_main():
         errors_count = log_counter["ERROR"] + log_counter["CRITICAL"]
 
         if total > 0:
-            pct_pass = int((passed / total) * 100)
+            pct_pass = int((passed / float(total)) * 100)
         else:
             pct_pass = 0
 
@@ -96,17 +97,17 @@ def console_main():
         else:
             pct_color = Fore.RED
 
-        ratio_str = f"{pct_color}{passed}/{total}{Style.RESET_ALL}"
-        pct_str   = f"{pct_color}{pct_pass}%{Style.RESET_ALL}"
+        ratio_str = "{}{}/{}{}".format(pct_color, passed, total, Style.RESET_ALL)
+        pct_str = "{}{}%{}".format(pct_color, pct_pass, Style.RESET_ALL)
 
-        text = f"Tests: {pct_str} passed ({ratio_str}) - "
+        text = "Tests: {} passed ({}) - ".format(pct_str, ratio_str)
         warn_err_text = []
         if warnings_count > 0:
-            warn_err_text.append(Fore.YELLOW + f"{warnings_count} warnings" + Style.RESET_ALL)
+            warn_err_text.append("{}{} warnings{}".format(Fore.YELLOW, warnings_count, Style.RESET_ALL))
         if errors_count > 0:
-            warn_err_text.append(Fore.RED + f"{errors_count} errors" + Style.RESET_ALL)
+            warn_err_text.append("{}{} errors{}".format(Fore.RED, errors_count, Style.RESET_ALL))
         if not warn_err_text:
-            warn_err_text.append(Fore.GREEN + "All perfect :)" + Style.RESET_ALL)
+            warn_err_text.append("{}All perfect :){}".format(Fore.GREEN, Style.RESET_ALL))
 
         text += ", ".join(warn_err_text)
         print(text)
@@ -126,13 +127,23 @@ def console_main():
 
     for outcome in test_results:
         status = outcome["status"]
-        color_status = Fore.GREEN + "PASS" if status == "pass" else Fore.RED + "FAIL"
+        if status == "pass":
+            color_status = Fore.GREEN + "PASS"
+        else:
+            color_status = Fore.RED + "FAIL"
+
         duration_s = outcome["duration_s"]
-        testkey = f"{os.path.basename(outcome['file'])}::{outcome['test']}"
-        print(f"{testkey:50s} - {color_status}{Style.RESET_ALL} in {duration_s:.3f}s")
+        # Replace f-string with .format()
+        testkey = "{}::{}".format(
+            os.path.basename(outcome["file"]),
+            outcome["test"]
+        )
+
+        print("{:50s} - {}{} in {:.3f}s".format(testkey, color_status, Style.RESET_ALL, duration_s))
+
         if args.verbose:
             for (lvl, msg) in outcome["logs"]:
-                print(f"  {msg}")
+                print("  {}".format(msg))
             if outcome["artifacts"]:
-                print(f"  Artifacts: {outcome['artifacts']}")
+                print("  Artifacts: {}".format(outcome["artifacts"]))
             print()
