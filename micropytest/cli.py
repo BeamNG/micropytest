@@ -9,8 +9,16 @@ import argparse
 import logging
 from collections import Counter
 
-from colorama import Fore, Style
-# If colorama import fails, you can fallback or handle that as you do now.
+try:
+    from colorama import init as colorama_init, Fore, Style
+    colorama_init(autoreset=True)
+except ImportError:
+    class _FallbackFore:
+        RED = GREEN = YELLOW = MAGENTA = CYAN = ""
+    class _FallbackStyle:
+        RESET_ALL = ""
+    Fore = _FallbackFore()
+    Style = _FallbackStyle()
 
 from . import __version__
 from .core import (
