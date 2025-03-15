@@ -33,8 +33,11 @@ def console_main():
     parser.add_argument("path", nargs="?", default=".")
     parser.add_argument("-v", "--verbose", action="store_true", help="More logs.")
     parser.add_argument("-q", "--quiet",   action="store_true", help="Quiet mode.")
-    args = parser.parse_args()
-
+    parser.add_argument("-t", "--test", help="Run a specific test.")
+    
+    # Parse only the known arguments
+    args, unknown = parser.parse_known_args()
+    
     # If --version is requested, just print it and exit
     if args.version:
         print(__version__)
@@ -67,8 +70,17 @@ def console_main():
     if not args.quiet:
         logging.info("micropytest version: {}".format(__version__))
 
+    # Create context kwargs with CLI args
+    context_kwargs = {}
+    if unknown:
+        context_kwargs['args'] = unknown
+
     # Run tests
-    test_results = run_tests(tests_path=args.path, show_estimates=show_estimates)
+    test_results = run_tests(
+        tests_path=args.path, 
+        show_estimates=show_estimates,
+        context_kwargs=context_kwargs
+    )
 
     # Count outcomes
     passed = sum(r["status"] == "pass" for r in test_results)
