@@ -339,7 +339,7 @@ def run_tests(tests_path,
             task_id = progress.add_task(
                 "[cyan]Running tests...", 
                 total=total_tests,
-                stats="[green]0 ✓[/green] [red]0 ✗[/red] [magenta]0 ⚠[/magenta]"
+                stats="[green]0 ✓[/green] [red]0 ✗[/red] [magenta]0 ⚠[/magenta] [yellow]0 ⚠[/yellow]"
             )
             progress.start()
         except ImportError:
@@ -353,6 +353,7 @@ def run_tests(tests_path,
     pass_count = 0
     fail_count = 0
     skip_count = 0
+    warning_count = 0
     
     try:
         # Run tests with progress updates
@@ -437,10 +438,14 @@ def run_tests(tests_path,
             else:
                 fail_count += 1
             
+            # After running each test, update the warning count
+            warning_count_in_test = sum(1 for lvl, _ in ctx.log_records if lvl == "WARNING")
+            warning_count += warning_count_in_test
+            
             # Update progress with new statistics - safely
             if progress and task_id is not None:
                 try:
-                    stats = f"[green]{pass_count} ✓[/green] [red]{fail_count} ✗[/red] [magenta]{skip_count} ⚠[/magenta]"
+                    stats = f"[green]{pass_count} ✓[/green] [red]{fail_count} ✗[/red] [magenta]{skip_count} ⚠[/magenta] [yellow]{warning_count} ⚠[/yellow]"
                     progress.update(task_id, advance=1, description=description, stats=stats)
                 except Exception as e:
                     # If updating the progress bar fails, log it but continue
