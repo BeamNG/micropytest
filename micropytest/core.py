@@ -18,16 +18,9 @@ import importlib.util
 
 from . import __version__
 
-try:
-    from colorama import init as colorama_init, Fore, Style
-    colorama_init(autoreset=True)
-except ImportError:
-    class _FallbackFore:
-        RED = GREEN = YELLOW = MAGENTA = CYAN = ""
-    class _FallbackStyle:
-        RESET_ALL = ""
-    Fore = _FallbackFore()
-    Style = _FallbackStyle()
+# Import Rich components instead
+from rich.console import Console
+from rich.logging import RichHandler
 
 CONFIG_FILE = ".micropytest.json"
 TIME_REPORT_CUTOFF = 0.01 # dont report timings below this
@@ -123,15 +116,26 @@ class GlobalContextLogHandler(logging.Handler):
 
 class SimpleLogFormatter(logging.Formatter):
     """
-    Format logs with a timestamp and color-coded level, e.g.:
+    Format logs with a timestamp and level, e.g.:
     HH:MM:SS LEVEL|LOGGER| message
     """
     def format(self, record):
+        try:
+            from colorama import Fore, Style
+            has_colorama = True
+        except ImportError:
+            has_colorama = False
+            class Fore:
+                RED = GREEN = YELLOW = MAGENTA = CYAN = ""
+            class Style:
+                RESET_ALL = ""
+                
         tstamp = datetime.now().strftime("%H:%M:%S")
         level = record.levelname
         origin = record.name
         message = record.getMessage()
 
+        # Use colorama for coloring
         if level in ("ERROR", "CRITICAL"):
             color = Fore.RED
         elif level == "WARNING":
@@ -143,9 +147,7 @@ class SimpleLogFormatter(logging.Formatter):
         else:
             color = ""
 
-        return "{}{} {:8s}|{:11s}| {}{}".format(
-            color, tstamp, level, origin, message, Style.RESET_ALL
-        )
+        return f"{color}{tstamp} {level:8s}|{origin:11s}| {message}{Style.RESET_ALL}"
 
 
 def load_test_module_by_path(file_path):
@@ -211,7 +213,10 @@ def run_tests(tests_path,
               context_kwargs={},
               test_filter=None,
               tag_filter=None,
-              exclude_tags=None):
+              exclude_tags=None,
+              show_progress=True,
+              quiet_mode=False,
+              _is_nested_call=False):
     """
     The core function that:
       1) Discovers test_*.py
@@ -229,7 +234,16 @@ def run_tests(tests_path,
     :param test_filter: (str) Optional filter to run only tests matching this pattern
     :param tag_filter: (str or list) Optional tag(s) to filter tests by
     :param exclude_tags: (str or list) Optional tag(s) to exclude tests by
+    :param show_progress: (bool) Whether to show a progress bar during test execution
+    :param quiet_mode: (bool) Whether the runner is in quiet mode
+    :param _is_nested_call: (bool) Internal parameter to detect recursive calls
     """
+    import time
+    
+    # Disable progress bar for nested calls to prevent conflicts
+    if _is_nested_call:
+        show_progress = False
+    
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)  # or caller sets this
 
@@ -297,105 +311,157 @@ def run_tests(tests_path,
             sum_known += test_durations.get(key, 0.0)
         if sum_known > 0:
             root_logger.info(
-                "{}Estimated total time: ~ {:.2g} seconds for {} tests{}".format(
-                    Fore.CYAN, sum_known, total_tests, Style.RESET_ALL
-                )
+                f"Estimated total time: ~ {sum_known:.2g} seconds for {total_tests} tests"
             )
 
-    # Run each test
-    for idx, (file_path, test_name, test_func, tags) in enumerate(test_funcs, start=1):
-        # Create a context of the user-specified type
-        ctx = context_class(**context_kwargs)
-
-        # attach a log handler for this test
-        test_handler = GlobalContextLogHandler(ctx, formatter=formatter)
-        root_logger.addHandler(test_handler)
-
-        key = "{}::{}".format(file_path, test_name)
-        known_dur = test_durations.get(key, 0.0)
-
-        if show_estimates:
-            est_str = ''
-            if known_dur > TIME_REPORT_CUTOFF:
-                est_str = " (estimated ~ {:.2g} seconds)".format(known_dur)
-            root_logger.info(
-                "{}STARTING: {}{}{}".format(
-                    Fore.CYAN, key, est_str, Style.RESET_ALL
-                )
-            )
-
-        sig = inspect.signature(test_func)
-        expects_ctx = len(sig.parameters) > 0
-
-        t0 = time.perf_counter()
-        outcome = {
-            "file": file_path,
-            "test": test_name,
-            "status": None,
-            "logs": ctx.log_records,
-            "artifacts": ctx.artifacts,
-            "duration_s": 0.0,
-            "tags": list(tags)
-        }
-
+    # Initialize progress bar if requested
+    progress = None
+    task_id = None
+    
+    if show_progress and not _is_nested_call:
         try:
-            if expects_ctx:
-                test_func(ctx)
+            from rich.progress import Progress, TextColumn, BarColumn, SpinnerColumn
+            from rich.progress import TimeElapsedColumn, TimeRemainingColumn
+            
+            progress = Progress(
+                SpinnerColumn(),
+                TextColumn("[bold blue]{task.description}"),
+                BarColumn(complete_style="green", finished_style="green"),
+                TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+                TextColumn("•"),
+                TimeElapsedColumn(),
+                TextColumn("•"),
+                TimeRemainingColumn(),
+                TextColumn("{task.fields[stats]}"),
+                expand=True
+            )
+            
+            task_id = progress.add_task(
+                "[cyan]Running tests...", 
+                total=total_tests,
+                stats="[green]0 ✓[/green] [red]0 ✗[/red] [magenta]0 ⚠[/magenta]"
+            )
+            progress.start()
+        except ImportError:
+            root_logger.warning("Rich library not installed. Progress bar not available.")
+        except Exception as e:
+            root_logger.warning(f"Failed to initialize progress bar: {e}")
+            progress = None
+            task_id = None
+
+    # Initialize counters for statistics
+    pass_count = 0
+    fail_count = 0
+    skip_count = 0
+    
+    try:
+        # Run tests with progress updates
+        for i, (fpath, tname, fn, tags) in enumerate(test_funcs):
+            # Create a context of the user-specified type
+            ctx = context_class(**context_kwargs)
+
+            # attach a log handler for this test
+            test_handler = GlobalContextLogHandler(ctx, formatter=formatter)
+            root_logger.addHandler(test_handler)
+
+            key = "{}::{}".format(fpath, tname)
+            known_dur = test_durations.get(key, 0.0)
+
+            if show_estimates:
+                est_str = ''
+                if known_dur > TIME_REPORT_CUTOFF:
+                    est_str = f" (estimated ~ {known_dur:.2g} seconds)"
+                root_logger.info(f"STARTING: {key}{est_str}")
+
+            sig = inspect.signature(fn)
+            expects_ctx = len(sig.parameters) > 0
+
+            t0 = time.perf_counter()
+            outcome = {
+                "file": fpath,
+                "test": tname,
+                "status": None,
+                "logs": ctx.log_records,
+                "artifacts": ctx.artifacts,
+                "duration_s": 0.0,
+                "tags": list(tags)
+            }
+
+            try:
+                if expects_ctx:
+                    fn(ctx)
+                else:
+                    fn()
+
+                duration = time.perf_counter() - t0
+                outcome["duration_s"] = duration
+                passed_count += 1
+                outcome["status"] = "pass"
+                duration_str = ''
+                if duration > TIME_REPORT_CUTOFF:
+                    duration_str = f" ({duration:.2g} seconds)"
+                root_logger.info(f"FINISHED PASS: {key}{duration_str}")
+
+            except SkipTest as e:
+                duration = time.perf_counter() - t0
+                outcome["duration_s"] = duration
+                outcome["status"] = "skip"
+                skipped_count += 1
+                # We log skip as INFO or WARNING (up to you). Here we use CYAN for a mild notice.
+                root_logger.info(f"SKIPPED: {key} ({duration:.3f}s) - {e}")
+
+            except Exception:
+                duration = time.perf_counter() - t0
+                outcome["duration_s"] = duration
+                outcome["status"] = "fail"
+                root_logger.error(f"FINISHED FAIL: {key} ({duration:.3f}s)\n{traceback.format_exc()}")
+
+            finally:
+                root_logger.removeHandler(test_handler)
+
+            test_durations[key] = outcome["duration_s"]
+            test_results.append(outcome)
+
+            # Add tags to the log output if present
+            if tags:
+                tag_str = ", ".join(sorted(tags))
+                root_logger.info(f"Tags: {tag_str}")
+
+            # Update statistics
+            status = outcome["status"]
+            if status == "pass":
+                pass_count += 1
+                description = f"[green]PASS[/green]: {tname:<20}"
+            elif status == "skip":
+                skip_count += 1
+                description = f"[magenta]SKIP[/magenta]: {tname:<20}"
             else:
-                test_func()
+                fail_count += 1
+                description = f"[red]FAIL[/red]: {tname:<20}"
+            
+            # Update progress with new statistics - safely
+            if progress and task_id is not None:
+                try:
+                    stats = f"[green]{pass_count} ✓[/green] [red]{fail_count} ✗[/red] [magenta]{skip_count} ⚠[/magenta]"
+                    progress.update(task_id, advance=1, description=description, stats=stats)
+                except Exception as e:
+                    # If updating the progress bar fails, log it but continue
+                    root_logger.debug(f"Failed to update progress bar: {e}")
+                
+                # Add a small delay to make the status visible
+                if i < total_tests - 1:  # Not the last test
+                    time.sleep(0.1)
 
-            duration = time.perf_counter() - t0
-            outcome["duration_s"] = duration
-            passed_count += 1
-            outcome["status"] = "pass"
-            duration_str = ''
-            if duration > TIME_REPORT_CUTOFF:
-                duration_str = " ({:.2g} seconds)".format(duration)
-            root_logger.info(
-                "{}FINISHED PASS: {}{}{}".format(
-                    Fore.GREEN, key, duration_str, Style.RESET_ALL
-                )
-            )
-
-        except SkipTest as e:
-            duration = time.perf_counter() - t0
-            outcome["duration_s"] = duration
-            outcome["status"] = "skip"
-            skipped_count += 1
-            # We log skip as INFO or WARNING (up to you). Here we use CYAN for a mild notice.
-            root_logger.info(
-                "{}SKIPPED: {} ({:.3f}s) - {}{}".format(
-                    Fore.MAGENTA, key, duration, e, Style.RESET_ALL
-                )
-            )
-
-        except Exception:
-            duration = time.perf_counter() - t0
-            outcome["duration_s"] = duration
-            outcome["status"] = "fail"
-            root_logger.error(
-                "{}FINISHED FAIL: {} ({:.3f}s)\n{}{}".format(
-                    Fore.RED, key, duration, traceback.format_exc(), Style.RESET_ALL
-                )
-            )
-
-        finally:
-            root_logger.removeHandler(test_handler)
-
-        test_durations[key] = outcome["duration_s"]
-        test_results.append(outcome)
-
-        # Add tags to the log output if present
-        if tags:
-            tag_str = ", ".join(sorted(tags))
-            root_logger.info(f"Tags: {tag_str}")
+    finally:
+        # Ensure progress bar is stopped
+        if progress:
+            try:
+                progress.stop()
+            except Exception:
+                pass
 
     # Print final summary
-    root_logger.info(
-        "{}Tests completed: {}/{} passed, {} skipped.{}".format(
-            Fore.CYAN, passed_count, total_tests, skipped_count, Style.RESET_ALL
-        )
-    )
+    root_logger.info(f"Tests completed: {passed_count}/{total_tests} passed, {skipped_count} skipped.")
 
     # Write updated durations
     store_lastrun(tests_path, test_durations)

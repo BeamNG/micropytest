@@ -4,16 +4,10 @@ import argparse
 import logging
 from collections import Counter
 
-try:
-    from colorama import init as colorama_init, Fore, Style
-    colorama_init(autoreset=True)
-except ImportError:
-    class _FallbackFore:
-        RED = GREEN = YELLOW = MAGENTA = CYAN = ""
-    class _FallbackStyle:
-        RESET_ALL = ""
-    Fore = _FallbackFore()
-    Style = _FallbackStyle()
+# Import Rich components instead
+from rich.console import Console
+from rich.text import Text
+from rich.panel import Panel
 
 from . import __version__
 from .core import (
@@ -23,6 +17,9 @@ from .core import (
 )
 
 def console_main():
+    # Create a Rich console for output
+    console = Console()
+    
     parser = argparse.ArgumentParser(
         prog="micropytest",
         description="micropytest - 'pytest but smaller, simpler, and smarter'."
@@ -33,7 +30,9 @@ def console_main():
     parser.add_argument("--path", "-p", default=".", 
                         help="Path to the directory containing tests (default: current directory)")
     parser.add_argument("-v", "--verbose", action="store_true", help="More logs.")
-    parser.add_argument("-q", "--quiet",   action="store_true", help="Quiet mode.")
+    parser.add_argument("-q", "--quiet",   action="store_true", help="Quiet mode with progress bar.")
+    parser.add_argument("--no-progress", action="store_true",
+                       help="Disable progress bar.")
     parser.add_argument("--test", dest='test',
                         help='Run a specific test by name')
     
@@ -63,7 +62,7 @@ def console_main():
     live_format = SimpleLogFormatter()
     live_handler = create_live_console_handler(formatter=live_format)
 
-    # If quiet => set level above CRITICAL (so no logs) and skip attaching the handler
+    # If quiet => set level above CRITICAL (so no logs)
     if args.quiet:
         root_logger.setLevel(logging.CRITICAL + 1)
     elif args.verbose:
@@ -75,18 +74,24 @@ def console_main():
 
     # Only show estimates if not quiet
     show_estimates = not args.quiet
-
+    
+    # Determine whether to show progress bar
+    # Show by default, unless explicitly disabled with --no-progress
+    show_progress = not args.no_progress
+    
     # Log version only if not quiet (or if you want to keep it, you can remove the condition)
     if not args.quiet:
         logging.info("micropytest version: {}".format(__version__))
 
-    # Run tests with tag filtering
+    # Run tests with progress bar
     test_results = run_tests(
         tests_path=args.path, 
         show_estimates=show_estimates,
         test_filter=args.test,
         tag_filter=args.tags,
         exclude_tags=args.exclude_tags,
+        show_progress=show_progress,
+        quiet_mode=args.quiet,
     )
 
     # Count outcomes
@@ -94,6 +99,16 @@ def console_main():
     skipped = sum(r["status"] == "skip" for r in test_results)
     total = len(test_results)
     failed = total - (passed + skipped)
+
+    # Calculate total time across all tests
+    try:
+        total_time = sum(r["duration_s"] for r in test_results)
+    except (KeyError, TypeError):
+        # Fallback if there's an issue with the calculation
+        total_time = 0
+        for r in test_results:
+            if isinstance(r, dict):
+                total_time += r["duration_s"]
 
     # Tally warnings/errors from logs
     log_counter = Counter()
@@ -105,7 +120,7 @@ def console_main():
 
     # If not quiet, we print the fancy ASCII summary and per-test lines
     if not args.quiet and len(test_results) > 1:
-        print(r"""
+        console.print(Panel.fit("""
         _____    _______        _
        |  __ \  |__   __|      | |
   _   _| |__) |   _| | ___  ___| |_
@@ -114,18 +129,11 @@ def console_main():
  | ._,_|_|    \__, |_|\___||___/\__|
  | |           __/ |
  |_|          |___/           Report
- """)
+ """, title="microPyTest", border_style="cyan"))
 
-        # Show each test's line
+        # Show each test's line with Rich formatting
         for outcome in test_results:
             status = outcome["status"]
-            if status == "pass":
-                color_status = Fore.GREEN + "PASS"
-            elif status == "skip":
-                color_status = Fore.MAGENTA + "SKIP"
-            else:
-                color_status = Fore.RED + "FAIL"
-
             duration_s = outcome["duration_s"]
             testkey = "{}::{}".format(
                 os.path.basename(outcome["file"]),
@@ -134,54 +142,62 @@ def console_main():
 
             duration_str = ""
             if duration_s > 0.01:
-                duration_str = " in {:.2g} seconds".format(duration_s)
-            print("{:50s} - {}{}{}".format(
-                testkey, color_status, Style.RESET_ALL, duration_str)
-            )
+                duration_str = f" in {duration_s:.2g} seconds"
+            
+            # Use Rich's styling instead of Fore/Style
+            if status == "pass":
+                console.print(f"{testkey:50s} - [green]PASS[/green]{duration_str}")
+            elif status == "skip":
+                console.print(f"{testkey:50s} - [magenta]SKIP[/magenta]{duration_str}")
+            else:
+                console.print(f"{testkey:50s} - [red]FAIL[/red]{duration_str}")
 
             if args.verbose:
                 for (lvl, msg) in outcome["logs"]:
-                    print("  {}".format(msg))
+                    console.print(f"  {msg}")
                 if outcome["artifacts"]:
-                    print("  Artifacts: {}".format(outcome["artifacts"]))
-                print()
+                    console.print(f"  Artifacts: {outcome['artifacts']}")
+                console.print()
 
-    # Build the final summary line for both quiet and non-quiet modes
+    # Build the final summary with Rich formatting
     def plural(count, singular, plural_form):
         return singular if count == 1 else plural_form
 
-    total_str = "{} {}".format(total, plural(total, "test", "tests"))
+    total_str = f"{total} {plural(total, 'test', 'tests')}"
 
-    summary_chunks = []
+    # Create a Rich Text object for the summary
+    summary = Text()
+    summary.append("Summary: ")
+    summary.append(f"{total_str} => ")
+    
+    parts = []
     if passed > 0:
-        summary_chunks.append("{}{} passed{}".format(Fore.GREEN, passed, Style.RESET_ALL))
+        parts.append(Text(f"{passed} passed", style="green"))
     if skipped > 0:
-        summary_chunks.append("{}{} skipped{}".format(Fore.MAGENTA, skipped, Style.RESET_ALL))
+        parts.append(Text(f"{skipped} skipped", style="magenta"))
     if failed > 0:
-        summary_chunks.append("{}{} failed{}".format(Fore.RED, failed, Style.RESET_ALL))
+        parts.append(Text(f"{failed} failed", style="red"))
     if warnings_count > 0:
-        summary_chunks.append("{}{} warning{}{}".format(
-            Fore.YELLOW, warnings_count,
-            "" if warnings_count == 1 else "s",
-            Style.RESET_ALL
-        ))
+        parts.append(Text(f"{warnings_count} warning{'' if warnings_count == 1 else 's'}", style="yellow"))
     if errors_count > 0:
-        summary_chunks.append("{}{} error{}{}".format(
-            Fore.RED, errors_count,
-            "" if errors_count == 1 else "s",
-            Style.RESET_ALL
-        ))
-
-    # Total time across all tests
-    total_time = sum(o["duration_s"] for o in test_results)
+        parts.append(Text(f"{errors_count} error{'' if errors_count == 1 else 's'}", style="red"))
+    
+    # Add timing information
     if total_time > 0.01:
-        summary_chunks.append("{}took {:.2g} seconds{}".format(Fore.CYAN, total_time, Style.RESET_ALL))
-
-    if not summary_chunks:
-        summary_chunks.append("{}no tests run{}".format(Fore.CYAN, Style.RESET_ALL))
-
-    # Final summary line
+        parts.append(Text(f"took {total_time:.2g} seconds", style="cyan"))
+    
+    if not parts:
+        parts.append(Text("no tests run", style="cyan"))
+    
+    # Join the parts with commas
+    for i, part in enumerate(parts):
+        summary.append(part)
+        if i < len(parts) - 1:
+            summary.append(", ")
+    
+    # Print the final summary
     if args.quiet:
-        print("microPyTest v{}: {} => {}".format(__version__, total_str, ", ".join(summary_chunks)))
+        prefix = Text(f"microPyTest v{__version__}: {total_str} => ")
+        console.print(prefix + summary)
     else:
-        print("Summary: {} => {}".format(total_str, ", ".join(summary_chunks)))
+        console.print(summary)

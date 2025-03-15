@@ -29,6 +29,7 @@ keywords = ["pytest", "micro", "test-runner"]
 
 [project.optional-dependencies]
 color = ["colorama"]
+progress = ["rich>=10.0.0"]
 
 [project.scripts]
 micropytest = "micropytest.cli:console_main"
