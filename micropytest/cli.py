@@ -34,7 +34,16 @@ def console_main():
                         help="Path to the directory containing tests (default: current directory)")
     parser.add_argument("-v", "--verbose", action="store_true", help="More logs.")
     parser.add_argument("-q", "--quiet",   action="store_true", help="Quiet mode.")
-    parser.add_argument("-t", "--test", help="Run a specific test.")
+    parser.add_argument("--test", dest='test',
+                        help='Run a specific test by name')
+    
+    # Tag filtering
+    parser.add_argument('--tag', action='append', dest='tags',
+                        help='Run only tests with the specified tag (can be used multiple times)')
+
+    # Tag exclusion
+    parser.add_argument('--exclude-tag', action='append', dest='exclude_tags',
+                        help='Exclude tests with the specified tag (can be used multiple times)')
     
     # Parse only the known arguments
     args, _ = parser.parse_known_args()
@@ -71,11 +80,13 @@ def console_main():
     if not args.quiet:
         logging.info("micropytest version: {}".format(__version__))
 
-    # Run tests
+    # Run tests with tag filtering
     test_results = run_tests(
         tests_path=args.path, 
         show_estimates=show_estimates,
         test_filter=args.test,
+        tag_filter=args.tags,
+        exclude_tags=args.exclude_tags,
     )
 
     # Count outcomes

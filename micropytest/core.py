@@ -209,7 +209,9 @@ def run_tests(tests_path,
               show_estimates=False,
               context_class=TestContext,
               context_kwargs={},
-              test_filter=None):
+              test_filter=None,
+              tag_filter=None,
+              exclude_tags=None):
     """
     The core function that:
       1) Discovers test_*.py
@@ -225,6 +227,8 @@ def run_tests(tests_path,
     :param context_class: (type) A class to instantiate as the test context
     :param context_kwargs: (dict) Keyword arguments to pass to the context class
     :param test_filter: (str) Optional filter to run only tests matching this pattern
+    :param tag_filter: (str or list) Optional tag(s) to filter tests by
+    :param exclude_tags: (str or list) Optional tag(s) to exclude tests by
     """
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)  # or caller sets this
@@ -234,6 +238,22 @@ def run_tests(tests_path,
     # Load known durations
     lastrun_data = load_lastrun(tests_path)
     test_durations = lastrun_data.get("test_durations", {})
+
+    # Convert tag_filter to a set for easier comparison
+    tag_set = set()
+    if tag_filter:
+        if isinstance(tag_filter, str):
+            tag_set = {tag_filter}
+        else:
+            tag_set = set(tag_filter)
+            
+    # Convert exclude_tags to a set
+    exclude_tag_set = set()
+    if exclude_tags:
+        if isinstance(exclude_tags, str):
+            exclude_tag_set = {exclude_tags}
+        else:
+            exclude_tag_set = set(exclude_tags)
 
     # Discover test callables
     test_files = find_test_files(tests_path)
@@ -249,13 +269,20 @@ def run_tests(tests_path,
             if attr.startswith("test_"):
                 fn = getattr(mod, attr)
                 if callable(fn):
+                    # Get tags from the function if they exist
+                    tags = getattr(fn, '_tags', set())
+                    
                     # Apply test filter if provided
-                    if test_filter:
-                        # Check if the test name matches the filter
-                        if test_filter in attr:
-                            test_funcs.append((f, attr, fn))
-                    else:
-                        test_funcs.append((f, attr, fn))
+                    name_match = not test_filter or test_filter in attr
+                    
+                    # Apply tag filter if provided
+                    tag_match = not tag_set or (tags and tag_set.intersection(tags))
+                    
+                    # Apply exclude tag filter if provided
+                    exclude_match = exclude_tag_set and tags and exclude_tag_set.intersection(tags)
+                    
+                    if name_match and tag_match and not exclude_match:
+                        test_funcs.append((f, attr, fn, tags))
 
     total_tests = len(test_funcs)
     test_results = []
@@ -265,7 +292,7 @@ def run_tests(tests_path,
     # Possibly show total estimate
     if show_estimates and total_tests > 0:
         sum_known = 0.0
-        for (fpath, tname, _) in test_funcs:
+        for (fpath, tname, _, _) in test_funcs:
             key = "{}::{}".format(fpath, tname)
             sum_known += test_durations.get(key, 0.0)
         if sum_known > 0:
@@ -276,7 +303,7 @@ def run_tests(tests_path,
             )
 
     # Run each test
-    for idx, (file_path, test_name, test_func) in enumerate(test_funcs, start=1):
+    for idx, (file_path, test_name, test_func, tags) in enumerate(test_funcs, start=1):
         # Create a context of the user-specified type
         ctx = context_class(**context_kwargs)
 
@@ -308,6 +335,7 @@ def run_tests(tests_path,
             "logs": ctx.log_records,
             "artifacts": ctx.artifacts,
             "duration_s": 0.0,
+            "tags": list(tags)
         }
 
         try:
@@ -356,6 +384,11 @@ def run_tests(tests_path,
 
         test_durations[key] = outcome["duration_s"]
         test_results.append(outcome)
+
+        # Add tags to the log output if present
+        if tags:
+            tag_str = ", ".join(sorted(tags))
+            root_logger.info(f"Tags: {tag_str}")
 
     # Print final summary
     root_logger.info(

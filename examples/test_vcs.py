@@ -2,7 +2,9 @@
 import os
 import sys
 from micropytest.vcs_helper import VCSHelper  # Direct import of VCSHelper class
+from micropytest.decorators import tag  # Import the tag decorator
 
+@tag('vcs', 'git', 'integration')
 def test_vcs_helper(ctx):
     """Run a test that dumps VCS information about this file."""
     # Get the path of the current file
