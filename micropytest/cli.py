@@ -144,13 +144,16 @@ def console_main():
             if duration_s > 0.01:
                 duration_str = f" in {duration_s:.2g} seconds"
             
-            # Use Rich's styling instead of Fore/Style
+            # Use Rich's styling with fixed-width formatting for the status
             if status == "pass":
-                console.print(f"{testkey:50s} - [green]PASS[/green]{duration_str}")
+                status_display = "[green]PASS[/green]"
             elif status == "skip":
-                console.print(f"{testkey:50s} - [magenta]SKIP[/magenta]{duration_str}")
+                status_display = "[magenta]SKIP[/magenta]"
             else:
-                console.print(f"{testkey:50s} - [red]FAIL[/red]{duration_str}")
+                status_display = "[red]FAIL[/red]"
+            
+            # Ensure consistent width by using a fixed-width format string
+            console.print(f"{testkey:50s} - {status_display:20}{duration_str}")
 
             if args.verbose:
                 for (lvl, msg) in outcome["logs"]:

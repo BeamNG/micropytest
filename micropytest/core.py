@@ -429,15 +429,13 @@ def run_tests(tests_path,
 
             # Update statistics
             status = outcome["status"]
+            description = '[green]Running tests...'
             if status == "pass":
                 pass_count += 1
-                description = f"[green]PASS[/green]: {tname:<20}"
             elif status == "skip":
                 skip_count += 1
-                description = f"[magenta]SKIP[/magenta]: {tname:<20}"
             else:
                 fail_count += 1
-                description = f"[red]FAIL[/red]: {tname:<20}"
             
             # Update progress with new statistics - safely
             if progress and task_id is not None:
