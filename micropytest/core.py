@@ -60,12 +60,10 @@ class TestContext:
     A context object passed to each test if it accepts 'ctx'.
     Allows logging via ctx.debug(), etc., storing artifacts, and now skipping.
     """
-    def __init__(self, file_path, test_name):
+    def __init__(self):
         self.log_records = []
         self.log = logging.getLogger()
         self.artifacts = {}
-        self.file_path = file_path
-        self.test_name = test_name
 
     def debug(self, msg):
         self.log.debug(msg)
@@ -205,9 +203,9 @@ def store_lastrun(tests_root, test_durations):
 
 
 def run_tests(tests_path,
-              show_estimates,
+              show_estimates=False,
               context_class=TestContext,
-              context_kwargs=None):
+              context_kwargs={}):
     """
     The core function that:
       1) Discovers test_*.py
@@ -221,11 +219,7 @@ def run_tests(tests_path,
     :param tests_path: (str) Where to discover tests
     :param show_estimates: (bool) Whether to show time estimates
     :param context_class: (type) A class to instantiate as the test context
-    :param context_kwargs: (dict) Additional kwargs to pass to the context_class constructor
     """
-    if context_kwargs is None:
-        context_kwargs = {}
-
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)  # or caller sets this
 
@@ -272,7 +266,7 @@ def run_tests(tests_path,
     # Run each test
     for idx, (file_path, test_name, test_func) in enumerate(test_funcs, start=1):
         # Create a context of the user-specified type
-        ctx = context_class(file_path, test_name)
+        ctx = context_class(**context_kwargs)
 
         # attach a log handler for this test
         test_handler = GlobalContextLogHandler(ctx, formatter=formatter)

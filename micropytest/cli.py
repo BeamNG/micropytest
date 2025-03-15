@@ -36,7 +36,7 @@ def console_main():
     parser.add_argument("-t", "--test", help="Run a specific test.")
     
     # Parse only the known arguments
-    args, unknown = parser.parse_known_args()
+    args, _ = parser.parse_known_args()
     
     # If --version is requested, just print it and exit
     if args.version:
@@ -70,16 +70,10 @@ def console_main():
     if not args.quiet:
         logging.info("micropytest version: {}".format(__version__))
 
-    # Create context kwargs with CLI args
-    context_kwargs = {}
-    if unknown:
-        context_kwargs['args'] = unknown
-
     # Run tests
     test_results = run_tests(
         tests_path=args.path, 
         show_estimates=show_estimates,
-        context_kwargs=context_kwargs
     )
 
     # Count outcomes

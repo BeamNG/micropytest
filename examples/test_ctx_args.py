@@ -10,11 +10,7 @@ def test_with_ctx_args(ctx):
                         default="upper", help="Operation to perform")
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose output")
     
-    # Get args from context, defaulting to empty list if not present
-    cli_args = getattr(ctx, 'args', [])
-    
-    # Parse arguments from ctx.args
-    args = parser.parse_args(cli_args)
+    args, _ = parser.parse_known_args()
     
     # Log the parsed arguments
     ctx.debug(f"Parsed arguments:")

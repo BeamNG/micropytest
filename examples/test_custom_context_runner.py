@@ -16,59 +16,46 @@ import micropytest.core
 
 class MyCustomContext(micropytest.core.TestContext):
     """
-    A custom context that adds database access capabilities.
+    A custom context that overrides 'warn' and 'error' methods for demonstration,
+    and also holds a shared resource (like a DB connection).
     """
-    def __init__(self, file_path, test_name, **kwargs):
-        # Properly call parent constructor with required arguments
-        super(MyCustomContext, self).__init__(file_path, test_name)
-        
-        # Initialize custom label
-        self.custom_label = kwargs.get('custom_label', 'DB')
-        
-        # Initialize database connection
-        self.db = None
-        self.db_config = kwargs.get('db_config', {
-            'host': 'localhost',
-            'user': 'test_user',
-            'password': 'test_password',
-            'database': 'test_db'
-        })
-        
-    def connect_db(self):
-        """Simulate connecting to a database."""
-        self.debug(f"Connecting to database: {self.db_config['database']}")
-        # In a real implementation, this would create an actual connection
-        self.db = {"connected": True, "config": self.db_config}
-        return self.db
-    
-    def close_db(self):
-        """Close the database connection."""
-        if self.db:
-            self.debug("Closing database connection")
-            self.db = None
 
-    def do_db_query(self, query):
-        """Execute a database query."""
-        if not self.db:
-            self.warn("No db_conn available, skipping query: {}".format(query))
-            return None
-        
-        self.debug("Executing query: {}".format(query))
-        # Simulate query execution
-        return {"query": query, "results": ["row1", "row2"]}
+    def __init__(self, custom_label=None, db_conn=None):
+        """
+        :param custom_label: A string label we'll inject into warn/error messages.
+        :param db_conn: An optional database connection or other shared resource.
+        """
+        super(MyCustomContext, self).__init__()
+        self.custom_label = custom_label
+        self.db_conn = db_conn  # hold onto a shared resource, if provided
 
-    # Override logging methods to add custom label
-    def debug(self, msg):
-        labeled_msg = "[DEBUG-{}] {}".format(self.custom_label, msg)
-        super(MyCustomContext, self).debug(labeled_msg)
-    
     def warn(self, msg):
+        """
+        Override the base warn method to prepend our custom label.
+        """
         labeled_msg = "[WARN-{}] {}".format(self.custom_label, msg)
         super(MyCustomContext, self).warn(labeled_msg)
-    
+
     def error(self, msg):
+        """
+        Override the base error method to prepend our custom label.
+        """
         labeled_msg = "[ERROR-{}] {}".format(self.custom_label, msg)
         super(MyCustomContext, self).error(labeled_msg)
+
+    def do_db_query(self, query):
+        """
+        Example utility method: run a DB query using the stored db_conn,
+        and log something about it.
+        """
+        if not self.db_conn:
+            self.warn("No db_conn available, skipping query: {}".format(query))
+            return None
+        self.debug("Running DB query: {}".format(query))
+        # Hypothetical usage:
+        # result = self.db_conn.execute(query)
+        # return result
+        return "fake_result"
 
 
 def test_db_usage(ctx):
@@ -81,19 +68,8 @@ def test_db_usage(ctx):
         # this example might be run with the default context as well
         ctx.skip_test("Not the having the custom context")
 
-    # Connect to the database first
-    ctx.connect_db()
-    
-    # Now query should work
     result = ctx.do_db_query("SELECT * FROM sample_table")
-    
-    # The result should be a dictionary with query and results
-    assert result is not None, "Expected a result from do_db_query"
-    assert result["query"] == "SELECT * FROM sample_table", "Query should be preserved in result"
-    assert "results" in result, "Expected 'results' in query result"
-    
-    # Clean up
-    ctx.close_db()
+    assert result == "fake_result", "Expected 'fake_result' from do_db_query"
 
 
 def test_custom_context_integration():
@@ -129,6 +105,5 @@ def test_custom_context_integration():
     passed = sum(r["status"] in ["pass", "skip"] for r in results)
     total = len(results)
 
-    # We expect some tests to fail when run with the custom context
-    # So we'll just report the results instead of asserting
-    print(f"Custom context test run: {passed}/{total} tests passed or skipped")
+    # Ensure that all tests discovered by the nested run pass
+    assert passed == total, "Expected all tests to pass with the custom context!"
