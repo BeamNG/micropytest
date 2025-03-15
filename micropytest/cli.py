@@ -30,7 +30,8 @@ def console_main():
     parser.add_argument("--version", action="store_true",
                         help="Show micropytest version and exit.")
 
-    parser.add_argument("path", nargs="?", default=".")
+    parser.add_argument("--path", "-p", default=".", 
+                        help="Path to the directory containing tests (default: current directory)")
     parser.add_argument("-v", "--verbose", action="store_true", help="More logs.")
     parser.add_argument("-q", "--quiet",   action="store_true", help="Quiet mode.")
     parser.add_argument("-t", "--test", help="Run a specific test.")

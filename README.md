@@ -147,7 +147,7 @@ See the examples subfolder
 If you prefer a command-line flow:
 
 ```bash
-micropytest [OPTIONS] [PATH]
+micropytest -p tests/
 ```
 
 - `-v, --verbose`: Show all debug logs & artifacts.
