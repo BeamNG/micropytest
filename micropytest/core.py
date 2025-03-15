@@ -68,6 +68,9 @@ class TestContext:
     def debug(self, msg):
         self.log.debug(msg)
 
+    def info(self, msg):
+        self.log.info(msg)
+
     def warn(self, msg):
         self.log.warning(msg)
 
