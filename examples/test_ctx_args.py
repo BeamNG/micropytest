@@ -1,5 +1,22 @@
 import argparse
 
+def test_cmdline_parser(ctx):
+    # Create parser
+    parser = argparse.ArgumentParser(description="Test with ctx.args")
+    parser.add_argument("--string", "-s", default="default string", help="Input string")
+    parser.add_argument("--number", "-n", type=int, default=0, help="Input number")
+    parser.add_argument("--operation", "-o", choices=["upper", "lower", "length", "square"], 
+                        default="upper", help="Operation to perform")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose output")
+    
+    args, _ = parser.parse_known_args()
+    
+    # Log the parsed arguments
+    ctx.info(f"==== Parsed arguments:")
+    for key, value in vars(args).items():
+        ctx.info(f"  {key}: {value}")
+
+
 def test_with_ctx_args(ctx):
     """Test that uses ctx.args with standard argparse."""
     # Create parser
