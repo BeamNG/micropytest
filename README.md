@@ -9,6 +9,8 @@
 - **Code-first approach**: Import and run tests from your own scripts.
 - **Artifact tracking**: Each test can record artifacts (files or data) via a built-in **test context**.
 - **Command execution**: Run and interact with external processes with real-time output processing.
+- **Test filtering**: Run only the tests you need by specifying patterns.
+- **Test arguments**: Pass command-line arguments directly to your tests.
 - **Lightweight**: Just Python. No special config or advanced fixtures.
 - **Optional CLI**: You can also run tests via the `micropytest` command, but **embedding** in your own code is the primary focus.
 
@@ -77,6 +79,51 @@ Key features:
 - Access stdout/stderr at any point during execution
 - Set custom environment variables and working directories
 
+## Test Filtering
+
+You can run a subset of tests by specifying a filter pattern:
+
+```python
+# Run only tests with "artifact" in their name
+results = micropytest.core.run_tests(tests_path="my_tests", test_filter="artifact")
+```
+
+This is especially useful when you're focusing on a specific area of your codebase.
+
+## Passing Arguments to Tests
+
+Tests can accept and parse command-line arguments using standard Python's `argparse`:
+
+```python
+def test_with_args(ctx):
+    import argparse
+    
+    # Create parser
+    parser = argparse.ArgumentParser(description="Test with arguments")
+    parser.add_argument("--string", "-s", default="default string", help="Input string")
+    parser.add_argument("--number", "-n", type=int, default=0, help="Input number")
+    
+    # Parse arguments (ignoring unknown args)
+    args, _ = parser.parse_known_args()
+    
+    # Log the parsed arguments
+    ctx.debug(f"Parsed arguments:")
+    for key, value in vars(args).items():
+        ctx.debug(f"  {key}: {value}")
+    
+    # Use the arguments in your test
+    assert args.string != "", "String should not be empty"
+    assert args.number >= 0, "Number should be non-negative"
+```
+
+When running from the command line, you can pass these arguments directly:
+
+```bash
+micropytest -t test_with_args --string="Hello World" --number=42
+```
+
+The arguments after your test filter will be passed to your test functions, allowing for flexible test parameterization.
+
 ## Differences from pyTest
 
 - **Code-first**: You typically call `run_tests(...)` from Python scripts. The CLI is optional if you prefer it.
@@ -105,15 +152,24 @@ micropytest [OPTIONS] [PATH]
 
 - `-v, --verbose`: Show all debug logs & artifacts.
 - `-q, --quiet`: Only prints a final summary.
+- `-t, --test`: Run only tests matching the specified pattern.
 
-Example:
+Examples:
 
 ```bash
+# Run all tests in my_tests directory
 micropytest -v my_tests
+
+# Run only tests with "artifact" in their name
+micropytest -t artifact my_tests
+
+# Run a specific test and pass arguments to it
+micropytest -t test_cmdline_parser --string="Hello" --number=42
 ```
 
 ## Changelog
 
+- **v0.5** – Added test filtering and argument passing capabilities
 - **v0.4** – Added Command class for process execution and interaction
 - **v0.3.1** – Fixed screenshot in pypi
 - **v0.3** – Added ability to skip tests

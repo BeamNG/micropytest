@@ -92,7 +92,7 @@ def console_main():
     errors_count   = log_counter["ERROR"] + log_counter["CRITICAL"]
 
     # If not quiet, we print the fancy ASCII summary and per-test lines
-    if not args.quiet:
+    if not args.quiet and len(test_results) > 1:
         print(r"""
         _____    _______        _
        |  __ \  |__   __|      | |
