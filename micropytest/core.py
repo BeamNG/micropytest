@@ -205,7 +205,8 @@ def store_lastrun(tests_root, test_durations):
 def run_tests(tests_path,
               show_estimates=False,
               context_class=TestContext,
-              context_kwargs={}):
+              context_kwargs={},
+              test_filter=None):
     """
     The core function that:
       1) Discovers test_*.py
@@ -219,6 +220,8 @@ def run_tests(tests_path,
     :param tests_path: (str) Where to discover tests
     :param show_estimates: (bool) Whether to show time estimates
     :param context_class: (type) A class to instantiate as the test context
+    :param context_kwargs: (dict) Keyword arguments to pass to the context class
+    :param test_filter: (str) Optional filter to run only tests matching this pattern
     """
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)  # or caller sets this
@@ -243,7 +246,13 @@ def run_tests(tests_path,
             if attr.startswith("test_"):
                 fn = getattr(mod, attr)
                 if callable(fn):
-                    test_funcs.append((f, attr, fn))
+                    # Apply test filter if provided
+                    if test_filter:
+                        # Check if the test name matches the filter
+                        if test_filter in attr:
+                            test_funcs.append((f, attr, fn))
+                    else:
+                        test_funcs.append((f, attr, fn))
 
     total_tests = len(test_funcs)
     test_results = []

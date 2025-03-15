@@ -74,6 +74,7 @@ def console_main():
     test_results = run_tests(
         tests_path=args.path, 
         show_estimates=show_estimates,
+        test_filter=args.test,
     )
 
     # Count outcomes
