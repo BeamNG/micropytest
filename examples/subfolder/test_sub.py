@@ -1,7 +1,9 @@
 # subfolder/test_sub.py
 
 import logging
+from micropytest.decorators import tag
 
+@tag('subfolder', 'logging', 'unit')
 def test_something_else(ctx):
     """
     Uses the test context and standard Python logging.

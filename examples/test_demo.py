@@ -1,5 +1,7 @@
 import time
+from micropytest.decorators import tag
 
+@tag('unit', 'basic', 'fast')
 def test_no_ctx():
     """
     A test function that doesn't accept ctx.
@@ -7,12 +9,15 @@ def test_no_ctx():
     # This test is extremely simple: just a raw assertion
     assert 2 + 2 == 4
 
+@tag('performance', 'slow')
 def test_long():
     time.sleep(0.5)
 
+@tag('performance', 'slow')
 def test_long2():
     time.sleep(1)
 
+@tag('unit', 'basic', 'fast')
 def test_with_ctx(ctx):
     """
     A test function that accepts a context (ctx).
@@ -32,6 +37,7 @@ def test_with_ctx(ctx):
     # A normal assertion
     assert answer == 42
 
+@tag('skip', 'example')
 def test_skip(ctx):
     ctx.skip_test("We never run this test as example")
 

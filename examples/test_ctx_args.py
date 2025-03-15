@@ -1,5 +1,7 @@
 import argparse
+from micropytest.decorators import tag
 
+@tag('args', 'cli', 'unit')
 def test_cmdline_parser(ctx):
     # Create parser
     parser = argparse.ArgumentParser(description="Test with ctx.args")
@@ -17,6 +19,7 @@ def test_cmdline_parser(ctx):
         ctx.info(f"  {key}: {value}")
 
 
+@tag('args', 'cli', 'unit')
 def test_with_ctx_args(ctx):
     """Test that uses ctx.args with standard argparse."""
     # Create parser
@@ -57,6 +60,7 @@ def test_with_ctx_args(ctx):
     
     return result
 
+@tag('args', 'filesystem', 'integration')
 def test_file_operations(ctx):
     """Test that handles file operations with argparse using ctx.args."""
     import os
@@ -126,6 +130,7 @@ def test_file_operations(ctx):
     
     return result
 
+@tag('args', 'basic', 'unit', 'fast')
 def test_no_args(ctx):
     """Test that doesn't use arguments."""
     ctx.debug("Running test without using arguments")

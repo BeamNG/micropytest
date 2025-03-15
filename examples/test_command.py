@@ -2,7 +2,9 @@ import time
 import sys
 import os
 from micropytest.command import Command
+from micropytest.decorators import tag
 
+@tag('command', 'unit', 'fast')
 def test_simple_command(ctx):
     """Basic example: Run a simple command and check its output."""
     with Command(["echo", "Hello World"]) as cmd:
@@ -13,6 +15,7 @@ def test_simple_command(ctx):
     assert len(stdout) == 1
     assert "Hello World" in stdout[0]
 
+@tag('command', 'error-handling', 'unit')
 def test_command_with_error(ctx):
     """Example: Handle command that produces error output."""
     # Use sys.executable to get the path to the current Python interpreter
@@ -30,6 +33,7 @@ def test_command_with_error(ctx):
         "stderr": stderr
     })
 
+@tag('command', 'callbacks', 'unit')
 def test_command_with_callbacks(ctx):
     """Example: Use callbacks to process output in real-time."""
     stdout_lines = []
@@ -52,6 +56,7 @@ def test_command_with_callbacks(ctx):
     assert stdout_lines == ["Line 1", "Line 2"]
     assert stderr_lines == ["Error"]
 
+@tag('command', 'interactive', 'integration')
 def test_interactive_basic(ctx):
     """Example: Basic interactive command usage."""
     with Command([sys.executable, "-i"]) as cmd:
@@ -71,6 +76,7 @@ def test_interactive_basic(ctx):
     # Verify the output contains our printed message
     assert any("Hello from interactive Python" in line for line in cmd.get_stdout())
 
+@tag('command', 'interactive', 'integration')
 def test_interactive_with_output_access(ctx):
     """Example: Interactive command with conditional behavior based on output."""
     with Command([sys.executable, "-i"]) as cmd:
@@ -110,6 +116,7 @@ def test_interactive_with_output_access(ctx):
     assert any("Hello, world!" in line for line in final_stdout)
     assert any("Result: 4" in line for line in final_stdout)
 
+@tag('command', 'environment', 'unit')
 def test_command_with_environment(ctx):
     """Example: Run a command with custom environment variables."""
     custom_env = {"TEST_VAR": "custom_value"}
@@ -125,6 +132,7 @@ def test_command_with_environment(ctx):
     
     assert stdout[0] == "custom_value"
 
+@tag('command', 'filesystem', 'unit')
 def test_command_with_working_directory(ctx):
     """Example: Run a command in a specific working directory."""
     import os
@@ -142,6 +150,7 @@ def test_command_with_working_directory(ctx):
         # Use realpath to resolve any symlinks for consistent comparison
         assert os.path.realpath(stdout[0]) == os.path.realpath(temp_dir)
 
+@tag('command', 'interactive', 'complex', 'integration')
 def test_complex_interaction(ctx):
     """Example: Complex interaction with a command-line program."""
     # This example simulates interaction with a CLI program that asks questions
