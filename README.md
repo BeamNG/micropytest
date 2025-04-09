@@ -176,8 +176,26 @@ pip install rich
 python -m micropytest .
 ```
 
+### Uploading to PyPI
+
+To build and upload a new version to PyPI:
+
+```bash
+# Install build tools
+pip install build twine
+
+# Build the distribution packages
+python -m build
+
+# Upload to PyPI
+twine upload dist/*
+```
+
+Make sure to update the version number in your setup.py or pyproject.toml before building a new release.
+
 ## Changelog
 
+- **v0.6** – Added rich display support, tag filtering, improved warnings display, VCS helper, and improved command execution
 - **v0.5** – Added test filtering and argument passing capabilities
 - **v0.4** – Added Command class for process execution and interaction
 - **v0.3.1** – Fixed screenshot in pypi
