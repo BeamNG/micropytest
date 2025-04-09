@@ -1,5 +1,5 @@
 [![PyPI](https://img.shields.io/pypi/v/micropytest.svg)](https://pypi.org/project/micropytest/)
-![Examples](https://github.com/BeamNG/micropytest/actions/workflows/test_examples.yml/badge.svg)
+[![Examples](https://github.com/BeamNG/micropytest/actions/workflows/test_examples.yml/badge.svg)](https://github.com/BeamNG/micropytest/actions/workflows/test_examples.yml)
 # microPyTest
 
 **microPyTest** is a minimal, pure python-based test runner that you can use directly in code.
