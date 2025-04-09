@@ -188,7 +188,7 @@ pip install build twine
 python -m build
 
 # Upload to PyPI
-twine upload dist/*
+python -m twine upload dist/micropytest-0.6.tar.gz
 ```
 
 Make sure to update the version number in your setup.py or pyproject.toml before building a new release.
