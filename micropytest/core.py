@@ -171,7 +171,7 @@ def find_test_files(start_dir="."):
         if (".venv" in root) or ("venv" in root) or ("site-packages" in root) or ("__pycache__" in root):
             continue
         for f in files:
-            if f.startswith("test_") or f.endswith("_test.py"):
+            if (f.startswith("test_") or f.endswith("_test.py")) and f.endswith(".py"):
                 test_files.append(os.path.join(root, f))
     return test_files
 
