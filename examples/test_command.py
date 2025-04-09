@@ -78,6 +78,8 @@ def test_command_with_callbacks(ctx):
 
 @tag('command', 'interactive', 'integration')
 def test_interactive_basic(ctx):
+    if os.getenv("CI"):
+        ctx.skip_test("Skipping interactive test in CI environment.")
     """Example: Basic interactive command usage."""
     with Command([sys.executable, "-i"]) as cmd:
         # Send a command to the Python interpreter
@@ -98,6 +100,8 @@ def test_interactive_basic(ctx):
 
 @tag('command', 'interactive', 'integration')
 def test_interactive_with_output_access(ctx):
+    if os.getenv("CI"):
+        ctx.skip_test("Skipping interactive test in CI environment.")
     """Example: Interactive command with conditional behavior based on output."""
     with Command([sys.executable, "-i"]) as cmd:
         # Write a command
