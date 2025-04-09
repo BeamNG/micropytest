@@ -96,6 +96,8 @@ async def test_custom_context_integration():
         tests_path=".",  # or "example_tests", etc.
         show_estimates=True,
         context_class=MyCustomContext,
+        show_progress=False,
+        _is_nested_call=True,
         context_kwargs={
             "custom_label": "(nested)",
             "db_conn": fake_db_conn,

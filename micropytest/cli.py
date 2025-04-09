@@ -85,7 +85,7 @@ def console_main():
 
     # Run tests with progress bar
     test_results = asyncio.run(run_tests(
-        tests_path=args.path, 
+        tests_path=args.path,
         show_estimates=show_estimates,
         test_filter=args.test,
         tag_filter=args.tags,
