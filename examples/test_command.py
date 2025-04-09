@@ -7,7 +7,27 @@ from micropytest.decorators import tag
 @tag('command', 'unit', 'fast')
 def test_simple_command(ctx):
     """Basic example: Run a simple command and check its output."""
-    with Command(["echo", "Hello World"]) as cmd:
+    if sys.platform == 'win32':
+        # On Windows, need to use cmd.exe to execute the echo command
+        with Command(["cmd.exe", "/c", "echo Hello World"]) as cmd:
+            cmd.wait()
+            stdout = cmd.get_stdout()
+    else:
+        # On Unix systems, echo is a separate executable
+        with Command(["echo", "Hello World"]) as cmd:
+            cmd.wait()
+            stdout = cmd.get_stdout()
+        
+    ctx.debug(f"Command output: {stdout}")
+    assert len(stdout) == 1
+    assert "Hello World" in stdout[0]
+
+@tag('command', 'unit', 'fast')
+def test_simple_python_command(ctx):
+    """Basic example: Run a simple command and check its output."""
+    # Use sys.executable to run Python with a print command instead of echo
+    # This works on both Windows and Unix systems
+    with Command([sys.executable, "-c", "print('Hello World')"]) as cmd:
         cmd.wait()
         stdout = cmd.get_stdout()
         
