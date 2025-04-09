@@ -1,3 +1,5 @@
+[![PyPI version](https://img.shields.io/pypi/v/micropytest.svg)](https://pypi.org/project/micropytest/)
+
 # microPyTest
 
 **microPyTest** is a minimal, pure python-based test runner that you can use directly in code.
@@ -18,6 +20,8 @@
 - **Optional CLI**: You can also run tests via the `micropytest` command, but **embedding** in your own code is the primary focus.
 
 ## Installation
+
+Install directly from [PyPI](https://pypi.org/project/micropytest/):
 
 ```bash
 pip install micropytest
