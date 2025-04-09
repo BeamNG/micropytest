@@ -326,20 +326,18 @@ def run_tests(tests_path,
             progress = Progress(
                 SpinnerColumn(),
                 TextColumn("[bold blue]{task.description}"),
-                BarColumn(complete_style="green", finished_style="green"),
-                TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-                TextColumn("•"),
+                BarColumn(complete_style="green", finished_style="green", pulse_style="yellow", bar_width=None),
+                TextColumn("{task.percentage:>3.0f}%"),
                 TimeElapsedColumn(),
-                TextColumn("•"),
                 TimeRemainingColumn(),
                 TextColumn("{task.fields[stats]}"),
-                expand=True
+                expand=False
             )
             
             task_id = progress.add_task(
                 "[cyan]Running tests...", 
                 total=total_tests,
-                stats="[green]0 ✓[/green] [red]0 ✗[/red] [magenta]0 ⚠[/magenta] [yellow]0 ⚠[/yellow]"
+                stats="[green]  0✓[/green] [red]  0✗[/red] [magenta]  0⚠[/magenta] [yellow]  0⚠[/yellow] "
             )
             progress.start()
         except ImportError:
@@ -445,7 +443,7 @@ def run_tests(tests_path,
             # Update progress with new statistics - safely
             if progress and task_id is not None:
                 try:
-                    stats = f"[green]{pass_count} ✓[/green] [red]{fail_count} ✗[/red] [magenta]{skip_count} ⚠[/magenta] [yellow]{warning_count} ⚠[/yellow]"
+                    stats = f"[green]{pass_count:3d}✓[/green] [red]{fail_count:3d}✗[/red] [magenta]{skip_count:3d}⚠[/magenta] [yellow]{warning_count:3d}⚠[/yellow] "
                     progress.update(task_id, advance=1, description=description, stats=stats)
                 except Exception as e:
                     # If updating the progress bar fails, log it but continue
