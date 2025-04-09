@@ -72,7 +72,7 @@ def test_db_usage(ctx):
     assert result == "fake_result", "Expected 'fake_result' from do_db_query"
 
 
-def test_custom_context_integration():
+async def test_custom_context_integration():
     """
     This test invokes micropytest itself (run_tests) with a custom context
     to verify that overriding warn/error/etc. and shared resources behave as expected.
@@ -91,7 +91,7 @@ def test_custom_context_integration():
     fake_db_conn = object()  # or your real DB connection
 
     # We'll run the tests in the current directory with a custom context and DB connection.
-    results = micropytest.core.run_tests(
+    results = await micropytest.core.run_tests(
         tests_path=".",  # or "example_tests", etc.
         show_estimates=True,
         context_class=MyCustomContext,

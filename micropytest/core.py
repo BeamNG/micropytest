@@ -8,6 +8,7 @@ import time
 from datetime import datetime
 from collections import Counter
 import argparse
+import asyncio
 
 try:
     from pathlib import Path
@@ -207,7 +208,20 @@ def store_lastrun(tests_root, test_durations):
         pass
 
 
-def run_tests(tests_path,
+async def run_test_async(fn, ctx):
+    if inspect.iscoroutinefunction(fn):
+        if len(inspect.signature(fn).parameters) == 0:
+            await fn()
+        else:
+            await fn(ctx)
+    else:
+        if len(inspect.signature(fn).parameters) == 0:
+            fn()
+        else:
+            fn(ctx)
+
+
+async def run_tests(tests_path,
               show_estimates=False,
               context_class=TestContext,
               context_kwargs={},
@@ -337,7 +351,7 @@ def run_tests(tests_path,
             task_id = progress.add_task(
                 "[cyan]Running tests...", 
                 total=total_tests,
-                stats="[green]  0✓[/green] [red]  0✗[/red] [magenta]  0⚠[/magenta] [yellow]  0⚠[/yellow] "
+                stats="[green]  0✓[/green] [red]  0✗[/red] [magenta]  0→[/magenta] [yellow]  0⚠[/yellow] "
             )
             progress.start()
         except ImportError:
@@ -388,9 +402,9 @@ def run_tests(tests_path,
 
             try:
                 if expects_ctx:
-                    fn(ctx)
+                    await run_test_async(fn, ctx)
                 else:
-                    fn()
+                    await run_test_async(fn, ctx)
 
                 duration = time.perf_counter() - t0
                 outcome["duration_s"] = duration
@@ -443,7 +457,7 @@ def run_tests(tests_path,
             # Update progress with new statistics - safely
             if progress and task_id is not None:
                 try:
-                    stats = f"[green]{pass_count:3d}✓[/green] [red]{fail_count:3d}✗[/red] [magenta]{skip_count:3d}⚠[/magenta] [yellow]{warning_count:3d}⚠[/yellow] "
+                    stats = f"[green]{pass_count:3d}✓[/green] [red]{fail_count:3d}✗[/red] [magenta]{skip_count:3d}→[/magenta] [yellow]{warning_count:3d}⚠[/yellow] "
                     progress.update(task_id, advance=1, description=description, stats=stats)
                 except Exception as e:
                     # If updating the progress bar fails, log it but continue

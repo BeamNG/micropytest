@@ -3,6 +3,7 @@ import sys
 import argparse
 import logging
 from collections import Counter
+import asyncio
 
 # Import Rich components instead
 from rich.console import Console
@@ -84,7 +85,7 @@ def console_main():
         logging.info("micropytest version: {}".format(__version__))
 
     # Run tests with progress bar
-    test_results = run_tests(
+    test_results = asyncio.run(run_tests(
         tests_path=args.path, 
         show_estimates=show_estimates,
         test_filter=args.test,
@@ -92,7 +93,7 @@ def console_main():
         exclude_tags=args.exclude_tags,
         show_progress=show_progress,
         quiet_mode=args.quiet,
-    )
+    ))
 
     # Count outcomes
     passed = sum(r["status"] == "pass" for r in test_results)
