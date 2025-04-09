@@ -66,11 +66,10 @@ def console_main():
     # If quiet => set level above CRITICAL (so no logs)
     if args.quiet:
         root_logger.setLevel(logging.CRITICAL + 1)
-    elif args.verbose:
-        root_logger.setLevel(logging.DEBUG)
-        root_logger.addHandler(live_handler)
     else:
-        root_logger.setLevel(logging.INFO)
+        level = logging.DEBUG if args.verbose else logging.INFO
+        root_logger.setLevel(level)
+        live_handler.setLevel(level)
         root_logger.addHandler(live_handler)
 
     # Only show estimates if not quiet
