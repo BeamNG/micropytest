@@ -1,9 +1,8 @@
-[![PyPI version](https://img.shields.io/pypi/v/micropytest.svg)](https://pypi.org/project/micropytest/)
-
+[![PyPI](https://img.shields.io/pypi/v/micropytest.svg)](https://pypi.org/project/micropytest/)
+![Examples](https://github.com/BeamNG/micropytest/actions/workflows/test_examples.yml/badge.svg)
 # microPyTest
 
 **microPyTest** is a minimal, pure python-based test runner that you can use directly in code.
-
 
 ![recording.gif](https://github.com/BeamNG/micropytest/raw/main/docs/recording.gif)
 
@@ -211,3 +210,4 @@ Make sure to update the version number in your setup.py or pyproject.toml before
 - **v0.1** – Initial release
 
 Enjoy your **micro** yet **mighty** test runner!
+
