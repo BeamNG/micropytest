@@ -13,6 +13,7 @@ while preventing infinite recursion. Also shows how to:
 
 import os
 import micropytest.core
+import asyncio
 
 class MyCustomContext(micropytest.core.TestContext):
     """
