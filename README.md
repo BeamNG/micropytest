@@ -2,6 +2,9 @@
 
 **microPyTest** is a minimal, pure python-based test runner that you can use directly in code.
 
+
+![recording.gif](https://github.com/BeamNG/micropytest/raw/main/docs/recording.gif)
+
 ![screenshot.png](https://github.com/BeamNG/micropytest/raw/main/docs/screenshot.png)
 
 ## Key Points
