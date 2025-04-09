@@ -121,16 +121,16 @@ def console_main():
 
     # If not quiet, we print the fancy ASCII summary and per-test lines
     if not args.quiet and len(test_results) > 1:
-        console.print(Panel.fit("""
-        _____    _______        _
-       |  __ \  |__   __|      | |
-  _   _| |__) |   _| | ___  ___| |_
- | | | |  ___/ | | | |/ _ \/ __| __|
- | |_| | |   | |_| | |  __/\__ \ |_
- | ._,_|_|    \__, |_|\___||___/\__|
- | |           __/ |
- |_|          |___/           Report
- """, title="microPyTest", border_style="cyan"))
+        console.print(Panel.fit(r"""
+         _____    _______        _
+        |  __ \  |__   __|      | |
+   _   _| |__) |   _| | ___  ___| |_
+  | | | |  ___/ | | | |/ _ \/ __| __|
+  | |_| | |   | |_| | |  __/\__ \ |_
+  | ._,_|_|    \__, |_|\___||___/\__|
+  | |           __/ |
+  |_|          |___/           Report
+  """, title="microPyTest", border_style="cyan"))
 
         # Show each test's line with Rich formatting
         for outcome in test_results:
