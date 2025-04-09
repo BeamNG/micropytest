@@ -167,6 +167,15 @@ micropytest -t artifact my_tests
 micropytest -t test_cmdline_parser --string="Hello" --number=42
 ```
 
+## Development
+
+To develop with microPyTest, install the required dependencies and run the tests in the project:
+
+```bash
+pip install rich
+python -m micropytest .
+```
+
 ## Changelog
 
 - **v0.5** – Added test filtering and argument passing capabilities
