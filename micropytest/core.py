@@ -120,6 +120,10 @@ class SimpleLogFormatter(logging.Formatter):
     Format logs with a timestamp and level, e.g.:
     HH:MM:SS LEVEL|LOGGER| message
     """
+    def __init__(self, use_colors=True):
+        super().__init__()
+        self.use_colors = use_colors
+
     def format(self, record):
         try:
             from colorama import Fore, Style
@@ -136,19 +140,20 @@ class SimpleLogFormatter(logging.Formatter):
         origin = record.name
         message = record.getMessage()
 
-        # Use colorama for coloring
-        if level in ("ERROR", "CRITICAL"):
-            color = Fore.RED
-        elif level == "WARNING":
-            color = Fore.YELLOW
-        elif level == "DEBUG":
-            color = Fore.MAGENTA
-        elif level == "INFO":
-            color = Fore.CYAN
-        else:
-            color = ""
+        color = ""
+        reset = ""
+        if self.use_colors and has_colorama:
+            if level in ("ERROR", "CRITICAL"):
+                color = Fore.RED
+            elif level == "WARNING":
+                color = Fore.YELLOW
+            elif level == "DEBUG":
+                color = Fore.MAGENTA
+            elif level == "INFO":
+                color = Fore.CYAN
+            reset = Style.RESET_ALL
 
-        return f"{color}{tstamp} {level:8s}|{origin:11s}| {message}{Style.RESET_ALL}"
+        return f"{color}{tstamp} {level:8s}|{origin:11s}| {message}{reset}"
 
 
 def load_test_module_by_path(file_path):
@@ -374,7 +379,7 @@ async def run_tests(tests_path,
             ctx = context_class(**context_kwargs)
 
             # attach a log handler for this test
-            test_handler = GlobalContextLogHandler(ctx, formatter=formatter)
+            test_handler = GlobalContextLogHandler(ctx, formatter=SimpleLogFormatter(use_colors=False))
             root_logger.addHandler(test_handler)
 
             key = "{}::{}".format(fpath, tname)
