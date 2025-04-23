@@ -156,9 +156,9 @@ If you prefer a command-line flow:
 micropytest -p tests/
 ```
 
-- `-v, --verbose`: Show all debug logs & artifacts.
-- `-q, --quiet`: Only prints a final summary.
-- `-t, --test`: Run only tests matching the specified pattern.
+- `--verbose`: Show all debug logs & artifacts.
+- `--quiet`: Only prints a final summary.
+- `--test`: Run only tests matching the specified pattern.
 
 Examples:
 
