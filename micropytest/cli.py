@@ -133,9 +133,7 @@ def console_main():
                 outcome["test"]
             )
 
-            duration_str = ""
-            if duration_s > 0.01:
-                duration_str = f" in {duration_s:.2g} seconds"
+            duration_str = f" in {duration_s:.2g} seconds" if duration_s > 0.01 else ""
             
             # Use Rich's styling with fixed-width formatting for the status
             if status == "pass":
@@ -185,11 +183,7 @@ def console_main():
     if not parts:
         parts.append(Text("no tests run", style="cyan"))
     
-    # Join the parts with commas
-    for i, part in enumerate(parts):
-        summary.append(part)
-        if i < len(parts) - 1:
-            summary.append(", ")
+    summary.append(", ".join(parts))
     
     # Print the final summary
     if args.quiet:
