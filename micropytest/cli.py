@@ -183,13 +183,10 @@ def console_main():
     
     if not parts:
         parts.append(Text("no tests run", style="cyan"))
-    
+
     # Join the parts with commas
-    for i, part in enumerate(parts):
-        summary.append(part)
-        if i < len(parts) - 1:
-            summary.append(", ")
-    
+    summary.append(Text(", ").join(parts))
+
     # Print the final summary
     if args.quiet:
         prefix = Text(f"microPyTest v{__version__}: {total_str} => ")
