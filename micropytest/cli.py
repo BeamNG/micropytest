@@ -14,7 +14,8 @@ from . import __version__
 from .core import (
     create_live_console_handler,
     SimpleLogFormatter,
-    run_tests
+    run_tests,
+    TIME_REPORT_CUTOFF,
 )
 
 def console_main():
@@ -133,7 +134,7 @@ def console_main():
                 outcome["test"]
             )
 
-            duration_str = f" in {duration_s:.2g} seconds" if duration_s > 0.01 else ""
+            duration_str = f" in {duration_s:.2g} seconds" if duration_s > TIME_REPORT_CUTOFF else ""
             
             # Use Rich's styling with fixed-width formatting for the status
             if status == "pass":
@@ -177,7 +178,7 @@ def console_main():
         parts.append(Text(f"{errors_count} error{'' if errors_count == 1 else 's'}", style="red"))
     
     # Add timing information
-    if total_time > 0.01:
+    if total_time > TIME_REPORT_CUTOFF:
         parts.append(Text(f"took {total_time:.2g} seconds", style="cyan"))
     
     if not parts:
