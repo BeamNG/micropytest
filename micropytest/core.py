@@ -41,7 +41,7 @@ def create_live_console_handler(formatter=None, level=logging.INFO):
 class TestContext:
     """
     A context object passed to each test if it accepts 'ctx'.
-    Allows logging via ctx.debug(), storing artifacts, test skipping, etc.
+    Allows logging via ctx.debug(), etc., storing artifacts, and skipping tests.
     """
     def __init__(self):
         self.log_records = []
