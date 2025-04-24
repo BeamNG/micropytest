@@ -100,15 +100,8 @@ def console_main():
     total = len(test_results)
     failed = total - (passed + skipped)
 
-    # Calculate total time across all tests
-    try:
-        total_time = sum(r["duration_s"] for r in test_results)
-    except (KeyError, TypeError):
-        # Fallback if there's an issue with the calculation
-        total_time = 0
-        for r in test_results:
-            if isinstance(r, dict):
-                total_time += r["duration_s"]
+    # Total time across all tests
+    total_time = sum(r["duration_s"] for r in test_results)
 
     # Tally warnings/errors from logs
     log_counter = Counter()
