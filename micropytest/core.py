@@ -110,10 +110,6 @@ class SimpleLogFormatter(logging.Formatter):
             has_colorama = True
         except ImportError:
             has_colorama = False
-            class Fore:
-                RED = GREEN = YELLOW = MAGENTA = CYAN = ""
-            class Style:
-                RESET_ALL = ""
                 
         tstamp = datetime.now().strftime("%H:%M:%S")
         level = record.levelname
