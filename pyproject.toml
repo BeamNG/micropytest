@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=62.0", "wheel"]
+requires = ["setuptools>=77.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -10,7 +10,7 @@ readme = { file = "README.md", content-type = "text/markdown" }
 authors = [
   { name="Thomas Fischer", email="tfischer@beamng.gmbh" }
 ]
-license = {file = "LICENSE"}
+license = "MIT"
 requires-python = ">=3.4"
 dependencies = [
     "rich>=10.0.0"
