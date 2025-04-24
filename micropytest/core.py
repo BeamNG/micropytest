@@ -244,8 +244,6 @@ async def run_tests(tests_path,
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)  # or caller sets this
 
-    formatter = SimpleLogFormatter()
-
     # Load known durations
     lastrun_data = load_lastrun(tests_path)
     test_durations = lastrun_data.get("test_durations", {})
