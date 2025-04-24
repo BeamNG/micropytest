@@ -18,6 +18,7 @@
 - **Lightweight**: Just Python. No special config or advanced fixtures.
 - **Optional CLI**: You can also run tests via the `micropytest` command, but **embedding** in your own code is the primary focus.
 
+
 ## Installation
 
 Install directly from [PyPI](https://pypi.org/project/micropytest/):
