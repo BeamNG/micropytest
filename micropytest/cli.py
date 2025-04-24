@@ -183,7 +183,11 @@ def console_main():
     if not parts:
         parts.append(Text("no tests run", style="cyan"))
     
-    summary.append(", ".join(parts))
+    # Join the parts with commas
+    for i, part in enumerate(parts):
+        summary.append(part)
+        if i < len(parts) - 1:
+            summary.append(", ")
     
     # Print the final summary
     if args.quiet:
