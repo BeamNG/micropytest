@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "micropytest"
-version = "0.8"
+version = "0.9"
 description = "A micro test runner"
 readme = { file = "README.md", content-type = "text/markdown" }
 authors = [
