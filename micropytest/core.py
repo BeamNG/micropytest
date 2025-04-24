@@ -41,7 +41,7 @@ def create_live_console_handler(formatter=None, level=logging.INFO):
 class TestContext:
     """
     A context object passed to each test if it accepts 'ctx'.
-    Allows logging via ctx.debug(), etc., storing artifacts, and skipping tests.
+    Allows logging via ctx.debug(), etc., storing artifacts (key-value store), and skipping tests.
     """
     def __init__(self):
         self.log_records = []
@@ -64,15 +64,7 @@ class TestContext:
         self.log.critical(msg)
 
     def add_artifact(self, key, value):
-        if isinstance(value, (str, Path)):
-            path_val = Path(value)
-            if path_val.is_file():
-                self.debug("Artifact file '{}' exists.".format(value))
-            else:
-                self.warn("Artifact file '{}' does NOT exist.".format(value))
-            self.artifacts[key] = {'type': 'filename', 'value': value}
-        else:
-            self.artifacts[key] = {'type': 'primitive', 'value': value}
+        self.artifacts[key] = value
 
     def skip_test(self, msg=None):
         """
