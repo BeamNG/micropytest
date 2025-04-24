@@ -6,22 +6,11 @@ import traceback
 import inspect
 import time
 from datetime import datetime
-from collections import Counter
-import argparse
-import asyncio
-
-try:
-    from pathlib import Path
-except ImportError:
-    raise ImportError("pathlib is required but not found.")
-
+from pathlib import Path
 import importlib.util
 
 from . import __version__
 
-# Import Rich components instead
-from rich.console import Console
-from rich.logging import RichHandler
 
 CONFIG_FILE = ".micropytest.json"
 TIME_REPORT_CUTOFF = 0.01 # dont report timings below this
@@ -75,7 +64,6 @@ class TestContext:
         self.log.critical(msg)
 
     def add_artifact(self, key, value):
-        from pathlib import Path
         if isinstance(value, (str, Path)):
             path_val = Path(value)
             if path_val.is_file():
@@ -257,8 +245,6 @@ async def run_tests(tests_path,
     :param quiet_mode: (bool) Whether the runner is in quiet mode
     :param _is_nested_call: (bool) Internal parameter to detect recursive calls
     """
-    import time
-    
     # Disable progress bar for nested calls to prevent conflicts
     if _is_nested_call:
         show_progress = False
