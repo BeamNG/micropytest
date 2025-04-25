@@ -21,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Git as VCS
+      - name: Install Git as VCS for tests that need a VCS
         run: |
           apt-get update
           apt-get install -y git
