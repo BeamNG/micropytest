@@ -26,6 +26,10 @@ jobs:
           apt-get update
           apt-get install -y git
 
+      - name: Configure Git
+        run: |
+          git config --global --add safe.directory ${{ github.workspace }}
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
