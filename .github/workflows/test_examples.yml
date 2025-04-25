@@ -28,7 +28,7 @@ jobs:
 
       - name: Configure Git
         run: |
-          git config --global --add safe.directory ${{ github.workspace }}
+          git config --global --add safe.directory '*'
 
       - name: Install dependencies
         run: |
