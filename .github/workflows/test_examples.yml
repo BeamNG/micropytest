@@ -21,6 +21,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install Git as VCS
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
