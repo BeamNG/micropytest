@@ -201,7 +201,8 @@ python -m twine upload dist/micropytest-xxx.tar.gz
 Make sure to update the version number in your setup.py or pyproject.toml before building a new release.
 
 ## Changelog
-- **v0.9.1** - Make pyproject.toml compatible with Python older than 3.9
+- **v0.9.2** - Fix dependency issues and require Python 3.9 or newer
+- **v0.9.1** - Make pyproject.toml compatible with Python older than 3.9 (attempt did not work)
 - **v0.9** - Several fixes
 - **v0.8** - Several fixes and minor improvements
 - **v0.7** - Added asyncio support
