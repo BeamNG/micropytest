@@ -126,7 +126,7 @@ def test_with_args(ctx):
 When running from the command line, you can pass these arguments directly:
 
 ```bash
-micropytest -t test_with_args --string="Hello World" --number=42
+micropytest --test test_with_args --string="Hello World" --number=42
 ```
 
 The arguments after your test filter will be passed to your test functions, allowing for flexible test parameterization.
