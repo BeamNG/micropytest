@@ -245,20 +245,13 @@ async def run_tests(tests_path,
     test_durations = lastrun_data.get("test_durations", {})
 
     # Convert tag_filter to a set for easier comparison
-    tag_set = set()
-    if tag_filter:
-        if isinstance(tag_filter, str):
-            tag_set = {tag_filter}
-        else:
-            tag_set = set(tag_filter)
-            
-    # Convert exclude_tags to a set
-    exclude_tag_set = set()
-    if exclude_tags:
-        if isinstance(exclude_tags, str):
-            exclude_tag_set = {exclude_tags}
-        else:
-            exclude_tag_set = set(exclude_tags)
+    def _to_set(list_or_str):
+        if list_or_str:
+            return {list_or_str} if isinstance(list_or_str, str) else set(list_or_str)
+        return set()
+
+    tag_set = _to_set(tag_filter)
+    exclude_tag_set = _to_set(exclude_tags)
 
     # Discover test callables
     test_files = find_test_files(tests_path)
