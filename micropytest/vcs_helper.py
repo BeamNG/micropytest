@@ -1,5 +1,4 @@
-# vcs_helper.py
-# A helper module for version control system operations
+"""A helper module for version control system operations."""
 
 import os
 import subprocess

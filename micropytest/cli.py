@@ -5,7 +5,6 @@ import logging
 from collections import Counter
 import asyncio
 
-# Import Rich components instead
 from rich.console import Console
 from rich.text import Text
 from rich.panel import Panel
