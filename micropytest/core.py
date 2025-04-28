@@ -284,8 +284,6 @@ async def run_tests(tests_path,
 
     total_tests = len(test_funcs)
     test_results = []
-    passed_count = 0
-    skipped_count = 0
 
     # Possibly show total estimate
     if show_estimates and total_tests > 0:
@@ -332,9 +330,9 @@ async def run_tests(tests_path,
             task_id = None
 
     # Initialize counters for statistics
-    pass_count = 0
-    fail_count = 0
-    skip_count = 0
+    passed_count = 0
+    failed_count = 0
+    skipped_count = 0
     warning_count = 0
     
     try:
@@ -356,7 +354,6 @@ async def run_tests(tests_path,
                     est_str = f" (estimated ~ {known_dur:.2g} seconds)"
                 root_logger.info(f"STARTING: {key}{est_str}")
 
-            t0 = time.perf_counter()
             outcome = {
                 "file": fpath,
                 "test": tname,
@@ -366,12 +363,12 @@ async def run_tests(tests_path,
                 "duration_s": 0.0,
                 "tags": list(tags)
             }
+            t0 = time.perf_counter()
 
             try:
                 await run_test_async(fn, ctx)
 
                 duration = time.perf_counter() - t0
-                outcome["duration_s"] = duration
                 passed_count += 1
                 outcome["status"] = "pass"
                 duration_str = ''
@@ -381,7 +378,6 @@ async def run_tests(tests_path,
 
             except SkipTest as e:
                 duration = time.perf_counter() - t0
-                outcome["duration_s"] = duration
                 outcome["status"] = "skip"
                 skipped_count += 1
                 # We log skip as INFO or WARNING (up to you). Here we use CYAN for a mild notice.
@@ -389,13 +385,14 @@ async def run_tests(tests_path,
 
             except Exception:
                 duration = time.perf_counter() - t0
-                outcome["duration_s"] = duration
                 outcome["status"] = "fail"
+                failed_count += 1
                 root_logger.error(f"FINISHED FAIL: {key} ({duration:.3f}s)\n{traceback.format_exc()}")
 
             finally:
                 root_logger.removeHandler(test_handler)
 
+            outcome["duration_s"] = duration
             test_durations[key] = outcome["duration_s"]
             test_results.append(outcome)
 
@@ -404,16 +401,8 @@ async def run_tests(tests_path,
                 tag_str = ", ".join(sorted(tags))
                 root_logger.info(f"Tags: {tag_str}")
 
-            # Update statistics
-            status = outcome["status"]
             description = '[green]Running tests...'
-            if status == "pass":
-                pass_count += 1
-            elif status == "skip":
-                skip_count += 1
-            else:
-                fail_count += 1
-            
+
             # After running each test, update the warning count
             warning_count_in_test = sum(1 for lvl, _ in ctx.log_records if lvl == "WARNING")
             warning_count += warning_count_in_test
@@ -421,7 +410,7 @@ async def run_tests(tests_path,
             # Update progress with new statistics - safely
             if progress and task_id is not None:
                 try:
-                    stats = f"[green]{pass_count:3d}✓[/green] [red]{fail_count:3d}✗[/red] [magenta]{skip_count:3d}→[/magenta] [yellow]{warning_count:3d}⚠[/yellow] "
+                    stats = f"[green]{passed_count:3d}✓[/green] [red]{failed_count:3d}✗[/red] [magenta]{skipped_count:3d}→[/magenta] [yellow]{warning_count:3d}⚠[/yellow] "
                     progress.update(task_id, advance=1, description=description, stats=stats)
                 except Exception as e:
                     # If updating the progress bar fails, log it but continue
