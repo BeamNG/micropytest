@@ -139,9 +139,7 @@ class GitVCS(VCSInterface):
             return msg_result.stdout.strip()
         except subprocess.SubprocessError:
             return None, "Could not determine commit message"
-        
-        return None, "No commit message found"
-    
+
     def get_file_history(self, file_path, limit=5):
         """Get file history (last N changes) in Git."""
         history = []
