@@ -10,7 +10,13 @@ from abc import ABC, abstractmethod
 
 class VCSInterface(ABC):
     """Abstract base class defining the interface for VCS operations."""
-    
+    name = None
+
+    @abstractmethod
+    def is_used(self, file_path) -> bool:
+        """Check if this VCS is used in the given file."""
+        pass
+
     @abstractmethod
     def get_file_creator(self, file_path):
         """Get the creator of a file."""
@@ -39,7 +45,19 @@ class VCSInterface(ABC):
 
 class GitVCS(VCSInterface):
     """Git implementation of the VCS interface."""
-    
+    name = "git"
+
+    def is_used(self, file_path) -> bool:
+        """Check if Git is used for the given file."""
+        try:
+            result = subprocess.run(['git', '-C', file_path, 'rev-parse', '--is-inside-work-tree'], 
+                                   capture_output=True, text=True, check=False)
+            if result.returncode == 0 and "true" in result.stdout:
+                return True
+        except FileNotFoundError:
+            pass  # Git command not found
+        return False
+
     def get_file_creator(self, file_path):
         """Get the creator of a file in Git."""
         try:
@@ -170,7 +188,19 @@ class GitVCS(VCSInterface):
 
 class SVNVCS(VCSInterface):
     """SVN implementation of the VCS interface."""
-    
+    name = "svn"
+
+    def is_used(self, file_path) -> bool:
+        """Check if SVN is used for the given file."""
+        try:
+            result = subprocess.run(['svn', 'info', file_path], 
+                                   capture_output=True, text=True, check=False)
+            if result.returncode == 0:
+                return True
+        except FileNotFoundError:
+            pass  # SVN command not found
+        return False
+
     def get_file_creator(self, file_path):
         """Get the creator of a file in SVN."""
         try:
@@ -388,81 +418,58 @@ class SVNVCS(VCSInterface):
         return history
 
 class VCSHelper:
-    @staticmethod
-    def detect_vcs(path):
+    def __init__(self, handlers=None):
+        if handlers is None:
+            handlers = [SVNVCS(), GitVCS()]
+        self.handlers = handlers
+
+    def detect_vcs(self, path):
         """Detect which version control system is being used."""
-        # Check for SVN
-        try:
-            result = subprocess.run(['svn', 'info', path], 
-                                   capture_output=True, text=True, check=False)
-            if result.returncode == 0:
-                return "svn"
-        except FileNotFoundError:
-            pass  # SVN command not found
-            
-        # Check for Git
-        try:
-            result = subprocess.run(['git', '-C', path, 'rev-parse', '--is-inside-work-tree'], 
-                                   capture_output=True, text=True, check=False)
-            if result.returncode == 0 and "true" in result.stdout:
-                return "git"
-        except FileNotFoundError:
-            pass  # Git command not found
-            
+        h = self.get_vcs_handler(path)
+        return h.name if h else None
+
+    def get_vcs_handler(self, path):
+        """Get the appropriate VCS implementation based on the repository type."""
+        for handler in self.handlers:
+            if handler.is_used(path):
+                return handler
         return None
 
-    @staticmethod
-    def get_vcs_handler(path):
-        """Get the appropriate VCS implementation based on the repository type."""
-        vcs_type = VCSHelper.detect_vcs(path)
-        
-        if vcs_type == "git":
-            return GitVCS()
-        elif vcs_type == "svn":
-            return SVNVCS()
-        else:
-            return None
-
-    @staticmethod
-    def get_file_creator(file_path):
+    def get_file_creator(self, file_path):
         """Get the creator of a file."""
-        vcs_handler = VCSHelper.get_vcs_handler(os.path.dirname(file_path))
+        vcs_handler = self.get_vcs_handler(os.path.dirname(file_path))
         if not vcs_handler:
             return None, "No version control system detected"
         
         return vcs_handler.get_file_creator(file_path)
 
-    @staticmethod
-    def get_last_modifier(file_path):
+    def get_last_modifier(self, file_path):
         """Get the last person who modified a file."""
-        vcs_handler = VCSHelper.get_vcs_handler(os.path.dirname(file_path))
+        vcs_handler = self.get_vcs_handler(os.path.dirname(file_path))
         if not vcs_handler:
             return None, "No version control system detected"
         
         return vcs_handler.get_last_modifier(file_path)
 
-    @staticmethod
-    def get_line_author(file_path, line_number):
+    def get_line_author(self, file_path, line_number):
         """Get the author of a specific line."""
-        vcs_handler = VCSHelper.get_vcs_handler(os.path.dirname(file_path))
+        vcs_handler = self.get_vcs_handler(os.path.dirname(file_path))
         if not vcs_handler:
             return None, "No version control system detected"
         
         return vcs_handler.get_line_author(file_path, line_number)
 
-    @staticmethod
-    def get_line_commit_message(file_path, line_number):
+    def get_line_commit_message(self, file_path, line_number):
         """Get the commit message for a specific line."""
-        vcs_handler = VCSHelper.get_vcs_handler(os.path.dirname(file_path))
+        vcs_handler = self.get_vcs_handler(os.path.dirname(file_path))
         if not vcs_handler:
             return None, "No version control system detected"
         
         return vcs_handler.get_line_commit_message(file_path, line_number)
 
-    @staticmethod
-    def get_file_history(file_path, limit=5):
+    def get_file_history(self, file_path, limit=5):
         """Get file history (last N changes)."""
-        vcs_handler = VCSHelper.get_vcs_handler(os.path.dirname(file_path))
+        vcs_handler = self.get_vcs_handler(os.path.dirname(file_path))
         if not vcs_handler:
             return None, "No version control system detected"
         
