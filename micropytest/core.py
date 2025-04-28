@@ -356,9 +356,6 @@ async def run_tests(tests_path,
                     est_str = f" (estimated ~ {known_dur:.2g} seconds)"
                 root_logger.info(f"STARTING: {key}{est_str}")
 
-            sig = inspect.signature(fn)
-            expects_ctx = len(sig.parameters) > 0
-
             t0 = time.perf_counter()
             outcome = {
                 "file": fpath,
@@ -371,10 +368,7 @@ async def run_tests(tests_path,
             }
 
             try:
-                if expects_ctx:
-                    await run_test_async(fn, ctx)
-                else:
-                    await run_test_async(fn, ctx)
+                await run_test_async(fn, ctx)
 
                 duration = time.perf_counter() - t0
                 outcome["duration_s"] = duration
