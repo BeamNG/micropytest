@@ -1,4 +1,4 @@
-# Add this to micropytest/decorators.py (create if it doesn't exist)
+"""Function decorators."""
 
 def tag(*tags):
     """
