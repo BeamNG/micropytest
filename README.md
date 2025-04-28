@@ -201,11 +201,12 @@ python -m twine upload dist/micropytest-xxx.tar.gz
 Make sure to update the version number in your setup.py or pyproject.toml before building a new release.
 
 ## Changelog
-- **v0.9.2** - Fix dependency issues and require Python 3.9 or newer
-- **v0.9.1** - Make pyproject.toml compatible with Python older than 3.9 (attempt did not work)
-- **v0.9** - Several fixes
-- **v0.8** - Several fixes and minor improvements
-- **v0.7** - Added asyncio support
+- **upcoming version** – Make VSCHelper extensible, breaking: you need to create an instance of VCSHelper to use its functions
+- **v0.9.2** – Fix dependency issues and require Python 3.9 or newer
+- **v0.9.1** – Make pyproject.toml compatible with Python older than 3.9 (attempt did not work)
+- **v0.9** – Several fixes
+- **v0.8** – Several fixes and minor improvements
+- **v0.7** – Added asyncio support
 - **v0.6** – Added rich display support, tag filtering, improved warnings display, VCS helper, and improved command execution
 - **v0.5** – Added test filtering and argument passing capabilities
 - **v0.4** – Added Command class for process execution and interaction
