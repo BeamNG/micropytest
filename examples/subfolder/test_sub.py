@@ -1,5 +1,3 @@
-# subfolder/test_sub.py
-
 import logging
 from micropytest.decorators import tag
 

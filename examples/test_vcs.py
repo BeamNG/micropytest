@@ -3,6 +3,8 @@ import os
 from micropytest.vcs_helper import VCSHelper
 from micropytest.decorators import tag
 
+# You could use custom VCS by passing the handlers argument to the constructor to supply a list of
+# VCSInterface implementations
 vcs_helper = VCSHelper()
 
 
