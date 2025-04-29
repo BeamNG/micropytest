@@ -303,15 +303,7 @@ async def run_tests(
     test_results = []
 
     # Possibly show total estimate
-    if show_estimates and total_tests > 0:
-        sum_known = 0.0
-        for (fpath, tname, _, _) in test_funcs:
-            key = f"{fpath}::{tname}"
-            sum_known += test_durations.get(key, 0.0)
-        if sum_known > 0:
-            root_logger.info(
-                f"Estimated total time: ~ {sum_known:.2g} seconds for {total_tests} tests"
-            )
+    _show_total_estimate(show_estimates, total_tests, test_funcs, test_durations, root_logger)
 
     # Initialize progress bar if requested
     progress, task_id = _initialize_progress_bar(show_progress, total_tests, root_logger)
@@ -330,13 +322,7 @@ async def run_tests(
             root_logger.addHandler(test_handler)
 
             key = f"{fpath}::{tname}"
-            known_dur = test_durations.get(key, 0.0)
-
-            if show_estimates:
-                est_str = ''
-                if known_dur > TIME_REPORT_CUTOFF:
-                    est_str = f" (estimated ~ {known_dur:.2g} seconds)"
-                root_logger.info(f"STARTING: {key}{est_str}")
+            _show_estimate(show_estimates, test_durations, key, root_logger)
 
             outcome = {
                 "file": fpath,
@@ -364,7 +350,6 @@ async def run_tests(
                 duration = time.perf_counter() - t0
                 outcome["status"] = "skip"
                 counts.skipped += 1
-                # We log skip as INFO or WARNING (up to you). Here we use CYAN for a mild notice.
                 root_logger.info(f"SKIPPED: {key} ({duration:.3f}s) - {e}")
 
             except Exception:
@@ -401,6 +386,27 @@ async def run_tests(
     # Write updated durations
     store_lastrun(tests_path, test_durations)
     return test_results
+
+
+def _show_total_estimate(show_estimates, total_tests, test_funcs, test_durations, logger):
+    if show_estimates and total_tests > 0:
+        sum_known = 0.0
+        for (fpath, tname, _, _) in test_funcs:
+            key = f"{fpath}::{tname}"
+            sum_known += test_durations.get(key, 0.0)
+        if sum_known > 0:
+            logger.info(
+                f"Estimated total time: ~ {sum_known:.2g} seconds for {total_tests} tests"
+            )
+
+
+def _show_estimate(show_estimates, test_durations, key, logger):
+    if show_estimates:
+        est_str = ''
+        known_dur = test_durations.get(key, 0.0)
+        if known_dur > TIME_REPORT_CUTOFF:
+            est_str = f" (estimated ~ {known_dur:.2g} seconds)"
+        logger.info(f"STARTING: {key}{est_str}")
 
 
 def _initialize_progress_bar(show_progress, total_tests, logger):
