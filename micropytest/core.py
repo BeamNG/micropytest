@@ -158,14 +158,14 @@ def find_test_files(start_dir="."):
     return test_files
 
 
-def discover_tests(tests_path, test_filter=None, tag_filter=None, exclude_tags=None, logger=None):
+def discover_tests(tests_path, test_filter=None, tag_filter=None, exclude_tags=None):
     """Discover all test functions in the given directory and subdirectories."""
     test_files = find_test_files(tests_path)
-    test_funcs = find_test_functions(test_files, test_filter, tag_filter, exclude_tags, logger)
+    test_funcs = find_test_functions(test_files, test_filter, tag_filter, exclude_tags)
     return test_funcs
 
 
-def find_test_functions(test_files, test_filter=None, tag_filter=None, exclude_tags=None, logger=None):
+def find_test_functions(test_files, test_filter=None, tag_filter=None, exclude_tags=None):
     """Find all test functions in the given test files."""
 
     tag_set = tags_to_set(tag_filter)
@@ -173,12 +173,10 @@ def find_test_functions(test_files, test_filter=None, tag_filter=None, exclude_t
 
     test_funcs = []
     for f in test_files:
-        try:
-            mod = load_test_module_by_path(f)
-        except Exception:
-            if logger:
-                logger.error("Error importing {}:\n{}".format(f, traceback.format_exc()))
-            continue
+        # Note: errors that happen during the test discovery phase (e.g. import errors) cannot be suppressed
+        # because those errors would not be attributed to a specific test. This would mean that some tests would be
+        # unexpectedly skipped in case of programming errors, without any indication of what went wrong.
+        mod = load_test_module_by_path(f)
 
         for attr in dir(mod):
             if attr.startswith("test_"):
@@ -310,7 +308,7 @@ async def run_tests(
     lastrun_data = load_lastrun(tests_path)
     test_durations = lastrun_data.get("test_durations", {})
 
-    test_funcs = discover_tests(tests_path, test_filter, tag_filter, exclude_tags, root_logger)
+    test_funcs = discover_tests(tests_path, test_filter, tag_filter, exclude_tags)
 
     total_tests = len(test_funcs)
     test_results = []
