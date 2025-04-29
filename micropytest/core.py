@@ -312,14 +312,15 @@ async def run_tests(
     :param exclude_tags: (str or list) Optional tag(s) to exclude tests by
     :param show_progress: (bool) Whether to show a progress bar during test execution
     """
+    # Discover tests to run
+    test_funcs = discover_tests(tests_path, test_filter, tag_filter, exclude_tags)
+
+    # Logger
     root_logger = logging.getLogger()
-    root_logger.setLevel(logging.DEBUG)  # or caller sets this
+    root_logger.setLevel(logging.DEBUG)
 
     # Load known durations
-    lastrun_data = load_lastrun(tests_path)
-    test_durations = lastrun_data.get("test_durations", {})
-
-    test_funcs = discover_tests(tests_path, test_filter, tag_filter, exclude_tags)
+    test_durations = load_lastrun(tests_path).get("test_durations", {})
 
     total_tests = len(test_funcs)
     test_results = []
