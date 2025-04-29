@@ -294,6 +294,8 @@ async def run_tests(
     show_progress=True,
 ):
     """
+    Discover tests and run them.
+
     The core function that:
       1) Discovers test_*.py
       2) For each test function test_*,
@@ -327,6 +329,8 @@ async def run_discovered_tests(
     context_class=TestContext,
     context_kwargs={},
 ):
+    """Run the given set of tests that were discovered in a previous step."""
+
     # Logger
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)
