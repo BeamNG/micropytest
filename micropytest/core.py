@@ -292,7 +292,7 @@ async def run_tests(
     tag_filter=None,
     exclude_tags=None,
     show_progress=True,
-    ):
+):
     """
     The core function that:
       1) Discovers test_*.py
@@ -312,9 +312,21 @@ async def run_tests(
     :param exclude_tags: (str or list) Optional tag(s) to exclude tests by
     :param show_progress: (bool) Whether to show a progress bar during test execution
     """
-    # Discover tests to run
     test_funcs = discover_tests(tests_path, test_filter, tag_filter, exclude_tags)
+    test_results = await run_discovered_tests(
+        tests_path, test_funcs, show_estimates, show_progress, context_class, context_kwargs
+    )
+    return test_results
 
+
+async def run_discovered_tests(
+    tests_path,
+    test_funcs,
+    show_estimates=False,
+    show_progress=True,
+    context_class=TestContext,
+    context_kwargs={},
+):
     # Logger
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)
