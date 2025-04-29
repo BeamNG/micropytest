@@ -157,6 +157,56 @@ def find_test_files(start_dir="."):
     return test_files
 
 
+def discover_tests(tests_path, test_filter=None, tag_filter=None, exclude_tags=None, logger=None):
+    """Discover all test functions in the given directory and subdirectories."""
+    test_files = find_test_files(tests_path)
+    test_funcs = find_test_functions(test_files, test_filter, tag_filter, exclude_tags, logger)
+    return test_funcs
+
+
+def find_test_functions(test_files, test_filter=None, tag_filter=None, exclude_tags=None, logger=None):
+    """Find all test functions in the given test files."""
+
+    tag_set = tags_to_set(tag_filter)
+    exclude_tag_set = tags_to_set(exclude_tags)
+
+    test_funcs = []
+    for f in test_files:
+        try:
+            mod = load_test_module_by_path(f)
+        except Exception:
+            if logger:
+                logger.error("Error importing {}:\n{}".format(f, traceback.format_exc()))
+            continue
+
+        for attr in dir(mod):
+            if attr.startswith("test_"):
+                fn = getattr(mod, attr)
+                if callable(fn):
+                    # Get tags from the function if they exist
+                    tags = getattr(fn, '_tags', set())
+                    
+                    # Apply test filter if provided
+                    name_match = not test_filter or test_filter in attr
+                    
+                    # Apply tag filter if provided
+                    tag_match = not tag_set or (tags and tag_set.intersection(tags))
+                    
+                    # Apply exclude tag filter if provided
+                    exclude_match = exclude_tag_set and tags and exclude_tag_set.intersection(tags)
+                    
+                    if name_match and tag_match and not exclude_match:
+                        test_funcs.append((f, attr, fn, tags))
+    return test_funcs
+
+
+def tags_to_set(list_or_str):
+    """Convert a list or string to a set."""
+    if list_or_str:
+        return {list_or_str} if isinstance(list_or_str, str) else set(list_or_str)
+    return set()
+
+
 def load_lastrun(tests_root):
     """
     Load .micropytest.json from the given tests root (tests_root/.micropytest.json), if present.
@@ -238,43 +288,7 @@ async def run_tests(
     lastrun_data = load_lastrun(tests_path)
     test_durations = lastrun_data.get("test_durations", {})
 
-    # Convert tag_filter to a set for easier comparison
-    def _to_set(list_or_str):
-        if list_or_str:
-            return {list_or_str} if isinstance(list_or_str, str) else set(list_or_str)
-        return set()
-
-    tag_set = _to_set(tag_filter)
-    exclude_tag_set = _to_set(exclude_tags)
-
-    # Discover test callables
-    test_files = find_test_files(tests_path)
-    test_funcs = []
-    for f in test_files:
-        try:
-            mod = load_test_module_by_path(f)
-        except Exception:
-            root_logger.error("Error importing {}:\n{}".format(f, traceback.format_exc()))
-            continue
-
-        for attr in dir(mod):
-            if attr.startswith("test_"):
-                fn = getattr(mod, attr)
-                if callable(fn):
-                    # Get tags from the function if they exist
-                    tags = getattr(fn, '_tags', set())
-                    
-                    # Apply test filter if provided
-                    name_match = not test_filter or test_filter in attr
-                    
-                    # Apply tag filter if provided
-                    tag_match = not tag_set or (tags and tag_set.intersection(tags))
-                    
-                    # Apply exclude tag filter if provided
-                    exclude_match = exclude_tag_set and tags and exclude_tag_set.intersection(tags)
-                    
-                    if name_match and tag_match and not exclude_match:
-                        test_funcs.append((f, attr, fn, tags))
+    test_funcs = discover_tests(tests_path, test_filter, tag_filter, exclude_tags, root_logger)
 
     total_tests = len(test_funcs)
     test_results = []
