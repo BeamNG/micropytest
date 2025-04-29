@@ -192,8 +192,8 @@ def console_main():
     else:
         console.print(summary)
 
-    # Exit with error code 1 if any tests failed
-    if failed > 0:
+    # Exit with error code 1 if any tests failed or any error occurred
+    if failed > 0 or errors_count > 0:
         sys.exit(1)
     else:
         sys.exit(0)
