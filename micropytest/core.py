@@ -256,7 +256,8 @@ class TestStats:
     passed: int = 0
     failed: int = 0
     skipped: int = 0
-    warning: int = 0
+    warnings: int = 0
+    errors: int = 0
 
     def update(self, outcome):
         """Update counters based on test outcome."""
@@ -268,8 +269,16 @@ class TestStats:
             self.failed += 1
         elif status == "skip":
             self.skipped += 1
-        self.warning += sum(1 for lvl, _ in logs if lvl == "WARNING")
+        self.warnings += sum(1 for lvl, _ in logs if lvl == "WARNING")
+        self.errors += sum(1 for lvl, _ in logs if (lvl == "ERROR" or lvl == "CRITICAL"))
         return self
+
+    @staticmethod
+    def from_results(test_results):
+        stats = TestStats()
+        for outcome in test_results:
+            stats.update(outcome)
+        return stats
 
 
 async def run_tests(
@@ -461,7 +470,7 @@ def _update_progress_bar(progress, task_id, i, total_tests, logger, counts):
             description = '[green]Running tests...'
             stats = (
                 f"[green]{counts.passed:3d}✓[/green] [red]{counts.failed:3d}✗[/red] "
-                f"[magenta]{counts.skipped:3d}→[/magenta] [yellow]{counts.warning:3d}⚠[/yellow] "
+                f"[magenta]{counts.skipped:3d}→[/magenta] [yellow]{counts.warnings:3d}⚠[/yellow] "
             )
             progress.update(task_id, advance=1, description=description, stats=stats)
         except Exception as e:

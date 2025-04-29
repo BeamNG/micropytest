@@ -101,10 +101,14 @@ async def test_custom_context_integration():
             "db_conn": fake_db_conn,
         }
     )
+    stats = micropytest.core.TestStats.from_results(results)
 
     # Summarize results
-    passed = sum(r["status"] in ["pass", "skip"] for r in results)
+    passed = stats.passed + stats.skipped
     total = len(results)
 
     # Ensure that all tests discovered by the nested run pass
     assert passed == total, "Expected all tests to pass with the custom context!"
+
+    # Ensure that there were no errors
+    assert stats.errors == 0, "Expected no errors."
