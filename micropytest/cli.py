@@ -2,7 +2,6 @@ import os
 import sys
 import argparse
 import logging
-from collections import Counter
 import asyncio
 
 from rich.console import Console
@@ -14,6 +13,7 @@ from .core import (
     create_live_console_handler,
     SimpleLogFormatter,
     run_tests,
+    TestStats,
     TIME_REPORT_CUTOFF,
 )
 
@@ -92,23 +92,7 @@ def console_main():
         exclude_tags=args.exclude_tags,
         show_progress=show_progress,
     ))
-
-    # Count outcomes
-    passed = sum(r["status"] == "pass" for r in test_results)
-    skipped = sum(r["status"] == "skip" for r in test_results)
-    total = len(test_results)
-    failed = total - (passed + skipped)
-
-    # Total time across all tests
-    total_time = sum(r["duration_s"] for r in test_results)
-
-    # Tally warnings/errors from logs
-    log_counter = Counter()
-    for outcome in test_results:
-        for (lvl, msg) in outcome["logs"]:
-            log_counter[lvl] += 1
-    warnings_count = log_counter["WARNING"]
-    errors_count   = log_counter["ERROR"] + log_counter["CRITICAL"]
+    stats = TestStats.from_results(test_results)
 
     # If not quiet, we print the fancy ASCII summary and per-test lines
     if not args.quiet and len(test_results) > 1:
@@ -153,31 +137,34 @@ def console_main():
                 console.print()
 
     # Build the final summary with Rich formatting
-    def plural(count, singular, plural_form):
+    def plural(count, singular, plural_form=None):
+        if plural_form is None:
+            plural_form = singular + "s"
         return singular if count == 1 else plural_form
 
-    total_str = f"{total} {plural(total, 'test', 'tests')}"
+    total = len(test_results)
+    total_str = f"{total} {plural(total, 'test')}"
 
     # Create a Rich Text object for the summary
     summary = Text()
     summary.append("Summary: ")
     summary.append(f"{total_str} => ")
-    
+
     parts = []
-    if passed > 0:
-        parts.append(Text(f"{passed} passed", style="green"))
-    if skipped > 0:
-        parts.append(Text(f"{skipped} skipped", style="magenta"))
-    if failed > 0:
-        parts.append(Text(f"{failed} failed", style="red"))
-    if warnings_count > 0:
-        parts.append(Text(f"{warnings_count} warning{'' if warnings_count == 1 else 's'}", style="yellow"))
-    if errors_count > 0:
-        parts.append(Text(f"{errors_count} error{'' if errors_count == 1 else 's'}", style="red"))
+    if stats.passed > 0:
+        parts.append(Text(f"{stats.passed} passed", style="green"))
+    if stats.skipped > 0:
+        parts.append(Text(f"{stats.skipped} skipped", style="magenta"))
+    if stats.failed > 0:
+        parts.append(Text(f"{stats.failed} failed", style="red"))
+    if stats.warnings > 0:
+        parts.append(Text(f"{stats.warnings} {plural(stats.warnings, 'warning')}", style="yellow"))
+    if stats.errors > 0:
+        parts.append(Text(f"{stats.errors} {plural(stats.errors, 'error')}", style="red"))
     
     # Add timing information
-    if total_time > TIME_REPORT_CUTOFF:
-        parts.append(Text(f"took {total_time:.2g} seconds", style="cyan"))
+    if stats.total_time > TIME_REPORT_CUTOFF:
+        parts.append(Text(f"took {stats.total_time:.2g} seconds", style="cyan"))
     
     if not parts:
         parts.append(Text("no tests run", style="cyan"))
@@ -193,7 +180,7 @@ def console_main():
         console.print(summary)
 
     # Exit with error code 1 if any tests failed or any error occurred
-    if failed > 0 or errors_count > 0:
+    if stats.failed > 0 or stats.errors > 0:
         sys.exit(1)
     else:
         sys.exit(0)

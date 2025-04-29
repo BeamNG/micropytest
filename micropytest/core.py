@@ -258,6 +258,7 @@ class TestStats:
     skipped: int = 0
     warnings: int = 0
     errors: int = 0
+    total_time: float = 0.0
 
     def update(self, outcome):
         """Update counters based on test outcome."""
@@ -271,6 +272,7 @@ class TestStats:
             self.skipped += 1
         self.warnings += sum(1 for lvl, _ in logs if lvl == "WARNING")
         self.errors += sum(1 for lvl, _ in logs if (lvl == "ERROR" or lvl == "CRITICAL"))
+        self.total_time += outcome["duration_s"]
         return self
 
     @staticmethod
