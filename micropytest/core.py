@@ -393,12 +393,7 @@ async def run_tests(
             _update_progress_bar(progress, task_id, i, total_tests, root_logger, counts)
 
     finally:
-        # Ensure progress bar is stopped
-        if progress:
-            try:
-                progress.stop()
-            except Exception:
-                pass
+        _finalize_progress_bar(progress)
 
     # Print final summary
     root_logger.info(f"Tests completed: {counts.passed}/{total_tests} passed, {counts.skipped} skipped.")
@@ -459,3 +454,12 @@ def _update_progress_bar(progress, task_id, i, total_tests, logger, counts):
         # Add a small delay to make the status visible
         if i < total_tests - 1:  # Not the last test
             time.sleep(0.1)
+
+
+def _finalize_progress_bar(progress):
+    # Ensure progress bar is stopped
+    if progress:
+        try:
+            progress.stop()
+        except Exception:
+            pass
