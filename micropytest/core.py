@@ -211,7 +211,6 @@ async def run_tests(
     tag_filter=None,
     exclude_tags=None,
     show_progress=True,
-    quiet_mode=False,
     _is_nested_call=False,
     ):
     """
@@ -232,7 +231,6 @@ async def run_tests(
     :param tag_filter: (str or list) Optional tag(s) to filter tests by
     :param exclude_tags: (str or list) Optional tag(s) to exclude tests by
     :param show_progress: (bool) Whether to show a progress bar during test execution
-    :param quiet_mode: (bool) Whether the runner is in quiet mode
     :param _is_nested_call: (bool) Internal parameter to detect recursive calls
     """
     # Disable progress bar for nested calls to prevent conflicts

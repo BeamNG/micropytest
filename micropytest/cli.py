@@ -91,7 +91,6 @@ def console_main():
         tag_filter=args.tags,
         exclude_tags=args.exclude_tags,
         show_progress=show_progress,
-        quiet_mode=args.quiet,
     ))
 
     # Count outcomes
