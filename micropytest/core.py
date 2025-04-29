@@ -211,7 +211,6 @@ async def run_tests(
     tag_filter=None,
     exclude_tags=None,
     show_progress=True,
-    _is_nested_call=False,
     ):
     """
     The core function that:
@@ -231,12 +230,7 @@ async def run_tests(
     :param tag_filter: (str or list) Optional tag(s) to filter tests by
     :param exclude_tags: (str or list) Optional tag(s) to exclude tests by
     :param show_progress: (bool) Whether to show a progress bar during test execution
-    :param _is_nested_call: (bool) Internal parameter to detect recursive calls
     """
-    # Disable progress bar for nested calls to prevent conflicts
-    if _is_nested_call:
-        show_progress = False
-    
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)  # or caller sets this
 
@@ -300,7 +294,7 @@ async def run_tests(
     progress = None
     task_id = None
     
-    if show_progress and not _is_nested_call:
+    if show_progress:
         try:
             from rich.progress import Progress, TextColumn, BarColumn, SpinnerColumn
             from rich.progress import TimeElapsedColumn, TimeRemainingColumn
