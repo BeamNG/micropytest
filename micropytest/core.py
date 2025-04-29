@@ -260,6 +260,19 @@ class TestStats:
     skipped: int = 0
     warning: int = 0
 
+    def update(self, outcome):
+        """Update counters based on test outcome."""
+        status = outcome["status"]
+        logs = outcome["logs"]
+        if status == "pass":
+            self.passed += 1
+        elif status == "fail":
+            self.failed += 1
+        elif status == "skip":
+            self.skipped += 1
+        self.warning += sum(1 for lvl, _ in logs if lvl == "WARNING")
+        return self
+
 
 async def run_tests(
     tests_path,
@@ -324,55 +337,17 @@ async def run_tests(
             key = f"{fpath}::{tname}"
             _show_estimate(show_estimates, test_durations, key, root_logger)
 
-            outcome = {
-                "file": fpath,
-                "test": tname,
-                "status": None,
-                "logs": ctx.log_records,
-                "artifacts": ctx.artifacts,
-                "duration_s": 0.0,
-                "tags": list(tags)
-            }
-            t0 = time.perf_counter()
+            outcome = await run_test_collect_outcome(fpath, tname, fn, tags, ctx, root_logger)
+            counts.update(outcome)
 
-            try:
-                await run_test_async(fn, ctx)
-
-                duration = time.perf_counter() - t0
-                counts.passed += 1
-                outcome["status"] = "pass"
-                duration_str = ''
-                if duration > TIME_REPORT_CUTOFF:
-                    duration_str = f" ({duration:.2g} seconds)"
-                root_logger.info(f"FINISHED PASS: {key}{duration_str}")
-
-            except SkipTest as e:
-                duration = time.perf_counter() - t0
-                outcome["status"] = "skip"
-                counts.skipped += 1
-                root_logger.info(f"SKIPPED: {key} ({duration:.3f}s) - {e}")
-
-            except Exception:
-                duration = time.perf_counter() - t0
-                outcome["status"] = "fail"
-                counts.failed += 1
-                root_logger.error(f"FINISHED FAIL: {key} ({duration:.3f}s)\n{traceback.format_exc()}")
-
-            finally:
-                root_logger.removeHandler(test_handler)
-
-            outcome["duration_s"] = duration
             test_durations[key] = outcome["duration_s"]
             test_results.append(outcome)
+            root_logger.removeHandler(test_handler)
 
             # Add tags to the log output if present
             if tags:
                 tag_str = ", ".join(sorted(tags))
                 root_logger.info(f"Tags: {tag_str}")
-
-            # After running each test, update the warning count
-            warning_count_in_test = sum(1 for lvl, _ in ctx.log_records if lvl == "WARNING")
-            counts.warning += warning_count_in_test
 
             # Update progress with new statistics
             _update_progress_bar(progress, task_id, i, total_tests, root_logger, counts)
@@ -386,6 +361,44 @@ async def run_tests(
     # Write updated durations
     store_lastrun(tests_path, test_durations)
     return test_results
+
+
+async def run_test_collect_outcome(fpath, tname, fn, tags, ctx, logger):
+    """Try to run a single test and return its outcome."""
+    
+    key = f"{fpath}::{tname}"
+    t0 = time.perf_counter()
+
+    try:
+        await run_test_async(fn, ctx)
+
+        duration = time.perf_counter() - t0
+        status = "pass"
+        duration_str = ''
+        if duration > TIME_REPORT_CUTOFF:
+            duration_str = f" ({duration:.2g} seconds)"
+        logger.info(f"FINISHED PASS: {key}{duration_str}")
+
+    except SkipTest as e:
+        duration = time.perf_counter() - t0
+        status = "skip"
+        logger.info(f"SKIPPED: {key} ({duration:.3f}s) - {e}")
+
+    except Exception:
+        duration = time.perf_counter() - t0
+        status = "fail"
+        logger.error(f"FINISHED FAIL: {key} ({duration:.3f}s)\n{traceback.format_exc()}")
+
+    outcome = {
+        "file": fpath,
+        "test": tname,
+        "status": status,
+        "logs": ctx.log_records,
+        "artifacts": ctx.artifacts,
+        "duration_s": duration,
+        "tags": list(tags)
+    }
+    return outcome
 
 
 def _show_total_estimate(show_estimates, total_tests, test_funcs, test_durations, logger):
