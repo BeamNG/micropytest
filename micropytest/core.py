@@ -202,16 +202,18 @@ async def run_test_async(fn, ctx):
             fn(ctx)
 
 
-async def run_tests(tests_path,
-              show_estimates=False,
-              context_class=TestContext,
-              context_kwargs={},
-              test_filter=None,
-              tag_filter=None,
-              exclude_tags=None,
-              show_progress=True,
-              quiet_mode=False,
-              _is_nested_call=False):
+async def run_tests(
+    tests_path,
+    show_estimates=False,
+    context_class=TestContext,
+    context_kwargs={},
+    test_filter=None,
+    tag_filter=None,
+    exclude_tags=None,
+    show_progress=True,
+    quiet_mode=False,
+    _is_nested_call=False,
+    ):
     """
     The core function that:
       1) Discovers test_*.py
@@ -289,7 +291,7 @@ async def run_tests(tests_path,
     if show_estimates and total_tests > 0:
         sum_known = 0.0
         for (fpath, tname, _, _) in test_funcs:
-            key = "{}::{}".format(fpath, tname)
+            key = f"{fpath}::{tname}"
             sum_known += test_durations.get(key, 0.0)
         if sum_known > 0:
             root_logger.info(
@@ -345,7 +347,7 @@ async def run_tests(tests_path,
             test_handler = GlobalContextLogHandler(ctx, formatter=SimpleLogFormatter(use_colors=False))
             root_logger.addHandler(test_handler)
 
-            key = "{}::{}".format(fpath, tname)
+            key = f"{fpath}::{tname}"
             known_dur = test_durations.get(key, 0.0)
 
             if show_estimates:
