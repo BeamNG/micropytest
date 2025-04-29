@@ -198,10 +198,10 @@ python -m build
 python -m twine upload dist/micropytest-xxx.tar.gz
 ```
 
-Make sure to update the version number in your setup.py or pyproject.toml before building a new release.
+Make sure to update the version number in `__init__.py` and `pyproject.toml` before building a new release.
 
 ## Changelog
-- **upcoming version** – Make VSCHelper extensible, breaking: you need to create an instance of VCSHelper to use its functions
+- **v0.10** – Refactoring, make VSCHelper extensible, breaking: you need to create an instance of VCSHelper to use its functions
 - **v0.9.2** – Fix dependency issues and require Python 3.9 or newer
 - **v0.9.1** – Make pyproject.toml compatible with Python older than 3.9 (attempt did not work)
 - **v0.9** – Several fixes
