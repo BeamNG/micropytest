@@ -5,6 +5,7 @@ import json
 import traceback
 import inspect
 import time
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 import importlib.util
@@ -252,6 +253,14 @@ async def run_test_async(fn, ctx):
             fn(ctx)
 
 
+@dataclass
+class TestStats:
+    passed: int = 0
+    failed: int = 0
+    skipped: int = 0
+    warning: int = 0
+
+
 async def run_tests(
     tests_path,
     show_estimates=False,
@@ -305,44 +314,11 @@ async def run_tests(
             )
 
     # Initialize progress bar if requested
-    progress = None
-    task_id = None
-    
-    if show_progress:
-        try:
-            from rich.progress import Progress, TextColumn, BarColumn, SpinnerColumn
-            from rich.progress import TimeElapsedColumn, TimeRemainingColumn
-            
-            progress = Progress(
-                SpinnerColumn(),
-                TextColumn("[bold blue]{task.description}"),
-                BarColumn(complete_style="green", finished_style="green", pulse_style="yellow", bar_width=None),
-                TextColumn("{task.percentage:>3.0f}%"),
-                TimeElapsedColumn(),
-                TimeRemainingColumn(),
-                TextColumn("{task.fields[stats]}"),
-                expand=False
-            )
-            
-            task_id = progress.add_task(
-                "[cyan]Running tests...", 
-                total=total_tests,
-                stats="[green]  0✓[/green] [red]  0✗[/red] [magenta]  0→[/magenta] [yellow]  0⚠[/yellow] "
-            )
-            progress.start()
-        except ImportError:
-            root_logger.warning("Rich library not installed. Progress bar not available.")
-        except Exception as e:
-            root_logger.warning(f"Failed to initialize progress bar: {e}")
-            progress = None
-            task_id = None
+    progress, task_id = _initialize_progress_bar(show_progress, total_tests, root_logger)
 
     # Initialize counters for statistics
-    passed_count = 0
-    failed_count = 0
-    skipped_count = 0
-    warning_count = 0
-    
+    counts = TestStats()
+
     try:
         # Run tests with progress updates
         for i, (fpath, tname, fn, tags) in enumerate(test_funcs):
@@ -377,7 +353,7 @@ async def run_tests(
                 await run_test_async(fn, ctx)
 
                 duration = time.perf_counter() - t0
-                passed_count += 1
+                counts.passed += 1
                 outcome["status"] = "pass"
                 duration_str = ''
                 if duration > TIME_REPORT_CUTOFF:
@@ -387,14 +363,14 @@ async def run_tests(
             except SkipTest as e:
                 duration = time.perf_counter() - t0
                 outcome["status"] = "skip"
-                skipped_count += 1
+                counts.skipped += 1
                 # We log skip as INFO or WARNING (up to you). Here we use CYAN for a mild notice.
                 root_logger.info(f"SKIPPED: {key} ({duration:.3f}s) - {e}")
 
             except Exception:
                 duration = time.perf_counter() - t0
                 outcome["status"] = "fail"
-                failed_count += 1
+                counts.failed += 1
                 root_logger.error(f"FINISHED FAIL: {key} ({duration:.3f}s)\n{traceback.format_exc()}")
 
             finally:
@@ -409,24 +385,12 @@ async def run_tests(
                 tag_str = ", ".join(sorted(tags))
                 root_logger.info(f"Tags: {tag_str}")
 
-            description = '[green]Running tests...'
-
             # After running each test, update the warning count
             warning_count_in_test = sum(1 for lvl, _ in ctx.log_records if lvl == "WARNING")
-            warning_count += warning_count_in_test
-            
-            # Update progress with new statistics - safely
-            if progress and task_id is not None:
-                try:
-                    stats = f"[green]{passed_count:3d}✓[/green] [red]{failed_count:3d}✗[/red] [magenta]{skipped_count:3d}→[/magenta] [yellow]{warning_count:3d}⚠[/yellow] "
-                    progress.update(task_id, advance=1, description=description, stats=stats)
-                except Exception as e:
-                    # If updating the progress bar fails, log it but continue
-                    root_logger.debug(f"Failed to update progress bar: {e}")
-                
-                # Add a small delay to make the status visible
-                if i < total_tests - 1:  # Not the last test
-                    time.sleep(0.1)
+            counts.warning += warning_count_in_test
+
+            # Update progress with new statistics
+            _update_progress_bar(progress, task_id, i, total_tests, root_logger, counts)
 
     finally:
         # Ensure progress bar is stopped
@@ -437,8 +401,61 @@ async def run_tests(
                 pass
 
     # Print final summary
-    root_logger.info(f"Tests completed: {passed_count}/{total_tests} passed, {skipped_count} skipped.")
+    root_logger.info(f"Tests completed: {counts.passed}/{total_tests} passed, {counts.skipped} skipped.")
 
     # Write updated durations
     store_lastrun(tests_path, test_durations)
     return test_results
+
+
+def _initialize_progress_bar(show_progress, total_tests, logger):
+    progress = None
+    task_id = None
+    
+    if show_progress:
+        try:
+            from rich.progress import Progress, TextColumn, BarColumn, SpinnerColumn
+            from rich.progress import TimeElapsedColumn, TimeRemainingColumn
+            
+            progress = Progress(
+                SpinnerColumn(),
+                TextColumn("[bold blue]{task.description}"),
+                BarColumn(complete_style="green", finished_style="green", pulse_style="yellow", bar_width=None),
+                TextColumn("{task.percentage:>3.0f}%"),
+                TimeElapsedColumn(),
+                TimeRemainingColumn(),
+                TextColumn("{task.fields[stats]}"),
+                expand=False
+            )
+            
+            task_id = progress.add_task(
+                "[cyan]Running tests...", 
+                total=total_tests,
+                stats="[green]  0✓[/green] [red]  0✗[/red] [magenta]  0→[/magenta] [yellow]  0⚠[/yellow] "
+            )
+            progress.start()
+        except ImportError:
+            logger.warning("Rich library not installed. Progress bar not available.")
+        except Exception as e:
+            logger.warning(f"Failed to initialize progress bar: {e}")
+            progress = None
+            task_id = None
+    return progress, task_id
+
+
+def _update_progress_bar(progress, task_id, i, total_tests, logger, counts):
+    if progress and task_id is not None:
+        try:
+            description = '[green]Running tests...'
+            stats = (
+                f"[green]{counts.passed:3d}✓[/green] [red]{counts.failed:3d}✗[/red] "
+                f"[magenta]{counts.skipped:3d}→[/magenta] [yellow]{counts.warning:3d}⚠[/yellow] "
+            )
+            progress.update(task_id, advance=1, description=description, stats=stats)
+        except Exception as e:
+            # If updating the progress bar fails, log it but continue
+            logger.debug(f"Failed to update progress bar: {e}")
+        
+        # Add a small delay to make the status visible
+        if i < total_tests - 1:  # Not the last test
+            time.sleep(0.1)
