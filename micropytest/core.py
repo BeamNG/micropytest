@@ -10,6 +10,7 @@ from datetime import datetime
 from pathlib import Path
 import importlib.util
 
+from .parameters import Args
 from . import __version__
 
 
@@ -158,14 +159,14 @@ def find_test_files(start_dir="."):
     return test_files
 
 
-def discover_tests(tests_path, test_filter=None, tag_filter=None, exclude_tags=None):
+def discover_tests(discover_ctx, tests_path, test_filter=None, tag_filter=None, exclude_tags=None):
     """Discover all test functions in the given directory and subdirectories."""
     test_files = find_test_files(tests_path)
-    test_funcs = find_test_functions(test_files, test_filter, tag_filter, exclude_tags)
+    test_funcs = find_test_functions(discover_ctx, test_files, test_filter, tag_filter, exclude_tags)
     return test_funcs
 
 
-def find_test_functions(test_files, test_filter=None, tag_filter=None, exclude_tags=None):
+def find_test_functions(discover_ctx, test_files, test_filter=None, tag_filter=None, exclude_tags=None):
     """Find all test functions in the given test files."""
 
     tag_set = tags_to_set(tag_filter)
@@ -184,18 +185,33 @@ def find_test_functions(test_files, test_filter=None, tag_filter=None, exclude_t
                 if callable(fn):
                     # Get tags from the function if they exist
                     tags = getattr(fn, '_tags', set())
-                    
+
                     # Apply test filter if provided
                     name_match = not test_filter or test_filter in attr
-                    
+
                     # Apply tag filter if provided
                     tag_match = not tag_set or (tags and tag_set.intersection(tags))
-                    
+
                     # Apply exclude tag filter if provided
                     exclude_match = exclude_tag_set and tags and exclude_tag_set.intersection(tags)
-                    
+
                     if name_match and tag_match and not exclude_match:
-                        test_funcs.append((f, attr, fn, tags))
+                        if hasattr(fn, '_argument_generator'):
+                            if len(inspect.signature(fn._argument_generator).parameters) == 0:
+                                args_list = fn._argument_generator()
+                            else:
+                                discover_ctx.test = TestAttributes(file=f, name=attr, function=fn, tags=tags)
+                                args_list = fn._argument_generator(discover_ctx)
+                            if len(args_list) == 0:
+                                test_funcs.append((f, attr, fn, tags, True, None))  # skip test (no arguments)
+                            else:
+                                for args in args_list:
+                                    if not isinstance(args, Args):
+                                        f = fn.__name__
+                                        raise ValueError(f"Argument generator of '{f}' returned a non-Args object")
+                                    test_funcs.append((f, attr, fn, tags, False, args))
+                        else:
+                            test_funcs.append((f, attr, fn, tags, False, None))
     return test_funcs
 
 
@@ -238,17 +254,19 @@ def store_lastrun(tests_root, test_durations):
         pass
 
 
-async def run_test_async(fn, ctx):
+async def run_test_async(fn, ctx, args):
+    if args is None:
+        args = Args()
     if inspect.iscoroutinefunction(fn):
         if len(inspect.signature(fn).parameters) == 0:
-            await fn()
+            await fn(*args.args, **args.kwargs)
         else:
-            await fn(ctx)
+            await fn(ctx, *args.args, **args.kwargs)
     else:
         if len(inspect.signature(fn).parameters) == 0:
-            fn()
+            fn(*args.args, **args.kwargs)
         else:
-            fn(ctx)
+            fn(ctx, *args.args, **args.kwargs)
 
 
 @dataclass
@@ -282,6 +300,13 @@ class TestStats:
             stats.update(outcome)
         return stats
 
+@dataclass
+class TestAttributes:
+    file: str
+    name: str
+    function: callable
+    tags: set[str]
+
 
 async def run_tests(
     tests_path,
@@ -314,7 +339,8 @@ async def run_tests(
     :param exclude_tags: (str or list) Optional tag(s) to exclude tests by
     :param show_progress: (bool) Whether to show a progress bar during test execution
     """
-    test_funcs = discover_tests(tests_path, test_filter, tag_filter, exclude_tags)
+    discover_ctx = context_class(**context_kwargs)
+    test_funcs = discover_tests(discover_ctx, tests_path, test_filter, tag_filter, exclude_tags)
     test_results = await run_discovered_tests(
         tests_path, test_funcs, show_estimates, show_progress, context_class, context_kwargs
     )
@@ -352,7 +378,7 @@ async def run_discovered_tests(
 
     try:
         # Run tests with progress updates
-        for i, (fpath, tname, fn, tags) in enumerate(test_funcs):
+        for i, (fpath, tname, fn, tags, skip, args) in enumerate(test_funcs):
             # Create a context of the user-specified type
             ctx = context_class(**context_kwargs)
 
@@ -363,7 +389,7 @@ async def run_discovered_tests(
             key = f"{fpath}::{tname}"
             _show_estimate(show_estimates, test_durations, key, root_logger)
 
-            outcome = await run_test_collect_outcome(fpath, tname, fn, tags, ctx, root_logger)
+            outcome = await run_test_collect_outcome(fpath, tname, fn, tags, skip, args,ctx, root_logger)
             counts.update(outcome)
 
             test_durations[key] = outcome["duration_s"]
@@ -389,14 +415,17 @@ async def run_discovered_tests(
     return test_results
 
 
-async def run_test_collect_outcome(fpath, tname, fn, tags, ctx, logger):
+async def run_test_collect_outcome(fpath, tname, fn, tags, skip, args, ctx, logger):
     """Try to run a single test and return its outcome."""
     
     key = f"{fpath}::{tname}"
     t0 = time.perf_counter()
 
     try:
-        await run_test_async(fn, ctx)
+        if skip:
+            raise SkipTest("Skipped because no arguments were generated.")
+
+        await run_test_async(fn, ctx, args)
 
         duration = time.perf_counter() - t0
         status = "pass"
@@ -418,6 +447,7 @@ async def run_test_collect_outcome(fpath, tname, fn, tags, ctx, logger):
     outcome = {
         "file": fpath,
         "test": tname,
+        "arguments": args,
         "status": status,
         "logs": ctx.log_records,
         "artifacts": ctx.artifacts,
@@ -430,7 +460,7 @@ async def run_test_collect_outcome(fpath, tname, fn, tags, ctx, logger):
 def _show_total_estimate(show_estimates, total_tests, test_funcs, test_durations, logger):
     if show_estimates and total_tests > 0:
         sum_known = 0.0
-        for (fpath, tname, _, _) in test_funcs:
+        for (fpath, tname, _, _, _, _) in test_funcs:
             key = f"{fpath}::{tname}"
             sum_known += test_durations.get(key, 0.0)
         if sum_known > 0:
