@@ -317,6 +317,7 @@ async def run_tests(
     tag_filter=None,
     exclude_tags=None,
     show_progress=True,
+    dry_run=False,
 ):
     """
     Discover tests and run them.
@@ -342,7 +343,7 @@ async def run_tests(
     discover_ctx = context_class(**context_kwargs)
     test_funcs = discover_tests(discover_ctx, tests_path, test_filter, tag_filter, exclude_tags)
     test_results = await run_discovered_tests(
-        tests_path, test_funcs, show_estimates, show_progress, context_class, context_kwargs
+        tests_path, test_funcs, show_estimates, show_progress, context_class, context_kwargs, dry_run
     )
     return test_results
 
@@ -354,6 +355,7 @@ async def run_discovered_tests(
     show_progress=True,
     context_class=TestContext,
     context_kwargs={},
+    dry_run=False,
 ):
     """Run the given set of tests that were discovered in a previous step."""
 
@@ -389,7 +391,7 @@ async def run_discovered_tests(
             key = f"{fpath}::{tname}"
             _show_estimate(show_estimates, test_durations, key, root_logger)
 
-            outcome = await run_test_collect_outcome(fpath, tname, fn, tags, skip, args,ctx, root_logger)
+            outcome = await run_test_collect_outcome(fpath, tname, fn, tags, skip, args,ctx, root_logger, dry_run)
             counts.update(outcome)
 
             test_durations[key] = outcome["duration_s"]
@@ -411,11 +413,12 @@ async def run_discovered_tests(
     root_logger.info(f"Tests completed: {counts.passed}/{total_tests} passed, {counts.skipped} skipped.")
 
     # Write updated durations
-    store_lastrun(tests_path, test_durations)
+    if not dry_run:
+        store_lastrun(tests_path, test_durations)
     return test_results
 
 
-async def run_test_collect_outcome(fpath, tname, fn, tags, skip, args, ctx, logger):
+async def run_test_collect_outcome(fpath, tname, fn, tags, skip, args, ctx, logger, dry_run):
     """Try to run a single test and return its outcome."""
     
     key = f"{fpath}::{tname}"
@@ -424,8 +427,8 @@ async def run_test_collect_outcome(fpath, tname, fn, tags, skip, args, ctx, logg
     try:
         if skip:
             raise SkipTest("Skipped because no arguments were generated.")
-
-        await run_test_async(fn, ctx, args)
+        if not dry_run:
+            await run_test_async(fn, ctx, args)
 
         duration = time.perf_counter() - t0
         status = "pass"

@@ -160,6 +160,7 @@ micropytest -p tests/
 - `--verbose`: Show all debug logs & artifacts.
 - `--quiet`: Only prints a final summary.
 - `--test`: Run only tests matching the specified pattern.
+- `--dry-run`: Show what tests would be run without actually running them (will assume them to pass).
 
 Examples:
 

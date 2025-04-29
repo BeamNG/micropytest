@@ -36,7 +36,8 @@ def console_main():
                        help="Disable progress bar.")
     parser.add_argument("--test", dest='test',
                         help='Run a specific test by name')
-    
+    parser.add_argument("--dry-run", action="store_true",
+                        help='Show what tests would be run without actually running them (assumes they pass)')
     # Tag filtering
     parser.add_argument('--tag', action='append', dest='tags',
                         help='Run only tests with the specified tag (can be used multiple times)')
@@ -91,6 +92,7 @@ def console_main():
         tag_filter=args.tags,
         exclude_tags=args.exclude_tags,
         show_progress=show_progress,
+        dry_run=args.dry_run,
     ))
     stats = TestStats.from_results(test_results)
 
