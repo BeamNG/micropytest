@@ -19,6 +19,15 @@ from . import __version__
 CONFIG_FILE = ".micropytest.json"
 TIME_REPORT_CUTOFF = 0.01 # dont report timings below this
 
+
+@dataclass
+class TestAttributes:
+    file: str
+    name: str
+    function: callable
+    tags: set[str]
+
+
 class SkipTest(Exception):
     """
     Raised by a test to indicate it should be skipped.
@@ -269,14 +278,6 @@ async def run_test_async(fn, ctx, args):
             fn(*args.args, **args.kwargs)
         else:
             fn(ctx, *args.args, **args.kwargs)
-
-
-@dataclass
-class TestAttributes:
-    file: str
-    name: str
-    function: callable
-    tags: set[str]
 
 
 async def run_tests(
