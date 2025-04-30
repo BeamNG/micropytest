@@ -1,4 +1,5 @@
 from rich.progress import Progress, TextColumn, BarColumn, SpinnerColumn, TimeElapsedColumn, TimeRemainingColumn
+from .stats import TestStats
 
 
 class TestProgress:
@@ -17,7 +18,7 @@ class TestProgress:
             self.task_id = self.progress.add_task(
                 "[cyan]Running tests...",
                 total=total_tests,
-                stats="[green]  0✓[/green] [red]  0✗[/red] [magenta]  0→[/magenta] [yellow]  0⚠[/yellow] "
+                stats=self._stats_format(TestStats())
             )
         else:
             self.progress = None
@@ -26,11 +27,14 @@ class TestProgress:
     def update(self, counts):
         if self.progress:
             description = '[green]Running tests...'
-            stats = (
-                f"[green]{counts.passed:3d}✓[/green] [red]{counts.failed:3d}✗[/red] "
-                f"[magenta]{counts.skipped:3d}→[/magenta] [yellow]{counts.warnings:3d}⚠[/yellow] "
-            )
+            stats = self._stats_format(counts)
             self.progress.update(self.task_id, advance=1, description=description, stats=stats)
+
+    def _stats_format(self, counts):
+        return (
+            f"[green]{counts.passed:3d}✓[/green] [red]{counts.failed:3d}✗[/red] "
+            f"[magenta]{counts.skipped:3d}→[/magenta] [yellow]{counts.warnings:3d}⚠[/yellow] "
+        )
 
     def __enter__(self):
         if self.progress:
