@@ -113,12 +113,7 @@ def console_main():
         for outcome in test_results:
             status = outcome["status"]
             duration_s = outcome["duration_s"]
-            testkey = "{}::{}".format(
-                os.path.basename(outcome["file"]),
-                outcome["test"]
-            )
-            if outcome["arguments"] is not None:
-                testkey += str(outcome['arguments'])
+            test_key = outcome["test"].short_key_with_args
 
             duration_str = f" in {duration_s:.2g} seconds" if duration_s > TIME_REPORT_CUTOFF else ""
             
@@ -131,7 +126,7 @@ def console_main():
                 status_display = "[red]FAIL[/red]"
             
             # Ensure consistent width by using a fixed-width format string
-            console.print(f"{testkey:50s} - {status_display:20}{duration_str}", highlight=False)
+            console.print(f"{test_key:50s} - {status_display:20}{duration_str}", highlight=False)
 
             if args.verbose:
                 for (lvl, msg) in outcome["logs"]:

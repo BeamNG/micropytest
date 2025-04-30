@@ -50,7 +50,7 @@ import micropytest.core
 results = micropytest.core.run_tests(tests_path="my_tests")
 passed = sum(r["status"] == "pass" for r in results)
 total = len(results)
-print("Test run complete: {}/{} passed".format(passed, total))
+print(f"Test run complete: {passed}/{total} passed")
 ```
 
 - Each test that accepts a `ctx` parameter gets a **TestContext** object with `.debug()`, `.warn()`, `.add_artifact()`, etc.
@@ -135,7 +135,7 @@ The arguments after your test filter will be passed to your test functions, allo
 
 - **Code-first**: You typically call `run_tests(...)` from Python scripts. The CLI is optional if you prefer it.
 
-- **Artifact handling is built-in**: `ctx.add_artifact("some_key", value)` can store files or data for later review. No extra plugin required.
+- **Artifact handling is built-in**: `ctx.add_artifact("some_key", value)` can store data for later review. No extra plugin required.
 
 - **Command execution built-in**: No need for external plugins to run and interact with processes.
 

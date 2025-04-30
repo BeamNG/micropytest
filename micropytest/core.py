@@ -39,6 +39,21 @@ class Test:
     args: Optional[Args]
     skip: bool  # skip because no arguments were generated
 
+    @property
+    def key(self):
+        file = self.file.replace('\\', '/')
+        return f"{file}::{self.name}"
+
+    @property
+    def short_key(self):
+        return f"{os.path.basename(self.file)}::{self.name}"
+
+    @property
+    def short_key_with_args(self):
+        if self.args is None:
+            return self.short_key
+        return f"{self.short_key}{self.args}"
+
 
 class SkipTest(Exception):
     """
@@ -369,13 +384,12 @@ async def run_discovered_tests(
             test_handler = GlobalContextLogHandler(ctx, formatter=SimpleLogFormatter(use_colors=False))
             root_logger.addHandler(test_handler)
 
-            key = f"{test.file}::{test.name}"
-            _show_estimate(show_estimates, test_durations, key, root_logger)
+            _show_estimate(show_estimates, test_durations, test.key, root_logger)
 
             outcome = await run_test_collect_outcome(test, ctx, root_logger, dry_run)
             counts.update(outcome)
 
-            test_durations[key] = outcome["duration_s"]
+            test_durations[test.key] = outcome["duration_s"]
             test_results.append(outcome)
             root_logger.removeHandler(test_handler)
 
@@ -398,8 +412,8 @@ async def run_discovered_tests(
 
 async def run_test_collect_outcome(test: Test, ctx, logger, dry_run):
     """Try to run a single test and return its outcome."""
-    
-    key = f"{test.file}::{test.name}"
+
+    key = test.key
     t0 = time.perf_counter()
 
     try:
@@ -426,14 +440,11 @@ async def run_test_collect_outcome(test: Test, ctx, logger, dry_run):
         logger.error(f"FINISHED FAIL: {key} ({duration:.3f}s)\n{traceback.format_exc()}")
 
     outcome = {
-        "file": test.file,
-        "test": test.name,
-        "arguments": test.args,
+        "test": test,
         "status": status,
         "logs": ctx.log_records,
         "artifacts": ctx.artifacts,
         "duration_s": duration,
-        "tags": list(test.tags)
     }
     return outcome
 
@@ -442,8 +453,7 @@ def _show_total_estimate(show_estimates, total_tests, tests: list[Test], test_du
     if show_estimates and total_tests > 0:
         sum_known = 0.0
         for test in tests:
-            key = f"{test.file}::{test.name}"
-            sum_known += test_durations.get(key, 0.0)
+            sum_known += test_durations.get(test.key, 0.0)
         if sum_known > 0:
             logger.info(
                 f"Estimated total time: ~ {sum_known:.2g} seconds for {total_tests} tests"
