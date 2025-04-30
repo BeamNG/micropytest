@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 import importlib.util
-
+from typing import Optional
 from .parameters import Args
 from .progress import TestProgress
 from .stats import TestStats
@@ -22,10 +22,22 @@ TIME_REPORT_CUTOFF = 0.01 # dont report timings below this
 
 @dataclass
 class TestAttributes:
+    """A test function, including tags."""
     file: str
     name: str
     function: callable
     tags: set[str]
+
+
+@dataclass
+class Test:
+    """A discovered test, including its arguments and tags."""
+    file: str
+    name: str
+    function: callable
+    tags: set[str]
+    args: Optional[Args]
+    skip: bool  # skip because no arguments were generated
 
 
 class SkipTest(Exception):
@@ -170,20 +182,20 @@ def find_test_files(start_dir="."):
     return test_files
 
 
-def discover_tests(discover_ctx, tests_path, test_filter=None, tag_filter=None, exclude_tags=None):
+def discover_tests(discover_ctx, tests_path, test_filter=None, tag_filter=None, exclude_tags=None) -> list[Test]:
     """Discover all test functions in the given directory and subdirectories."""
     test_files = find_test_files(tests_path)
-    test_funcs = find_test_functions(discover_ctx, test_files, test_filter, tag_filter, exclude_tags)
-    return test_funcs
+    tests = find_test_functions(discover_ctx, test_files, test_filter, tag_filter, exclude_tags)
+    return tests
 
 
-def find_test_functions(discover_ctx, test_files, test_filter=None, tag_filter=None, exclude_tags=None):
+def find_test_functions(discover_ctx, test_files, test_filter=None, tag_filter=None, exclude_tags=None) -> list[Test]:
     """Find all test functions in the given test files."""
 
     tag_set = tags_to_set(tag_filter)
     exclude_tag_set = tags_to_set(exclude_tags)
 
-    test_funcs = []
+    tests = []
     for f in test_files:
         # Note: errors that happen during the test discovery phase (e.g. import errors) cannot be suppressed
         # because those errors would not be attributed to a specific test. This would mean that some tests would be
@@ -214,16 +226,16 @@ def find_test_functions(discover_ctx, test_files, test_filter=None, tag_filter=N
                                 discover_ctx.test = TestAttributes(file=f, name=attr, function=fn, tags=tags)
                                 args_list = fn._argument_generator(discover_ctx)
                             if len(args_list) == 0:
-                                test_funcs.append((f, attr, fn, tags, True, None))  # skip test (no arguments)
+                                tests.append(Test(file=f, name=attr, function=fn, tags=tags, args=None, skip=True))
                             else:
                                 for args in args_list:
                                     if not isinstance(args, Args):
                                         f = fn.__name__
                                         raise ValueError(f"Argument generator of '{f}' returned a non-Args object")
-                                    test_funcs.append((f, attr, fn, tags, False, args))
+                                    tests.append(Test(file=f, name=attr, function=fn, tags=tags, args=args, skip=False))
                         else:
-                            test_funcs.append((f, attr, fn, tags, False, None))
-    return test_funcs
+                            tests.append(Test(file=f, name=attr, function=fn, tags=tags, args=None, skip=False))
+    return tests
 
 
 def tags_to_set(list_or_str):
@@ -313,16 +325,16 @@ async def run_tests(
     :param show_progress: (bool) Whether to show a progress bar during test execution
     """
     discover_ctx = context_class(**context_kwargs)
-    test_funcs = discover_tests(discover_ctx, tests_path, test_filter, tag_filter, exclude_tags)
+    tests = discover_tests(discover_ctx, tests_path, test_filter, tag_filter, exclude_tags)
     test_results = await run_discovered_tests(
-        tests_path, test_funcs, show_estimates, show_progress, context_class, context_kwargs, dry_run
+        tests_path, tests, show_estimates, show_progress, context_class, context_kwargs, dry_run
     )
     return test_results
 
 
 async def run_discovered_tests(
     tests_path,
-    test_funcs,
+    tests: list[Test],
     show_estimates=False,
     show_progress=True,
     context_class=TestContext,
@@ -338,18 +350,18 @@ async def run_discovered_tests(
     # Load known durations
     test_durations = load_lastrun(tests_path).get("test_durations", {})
 
-    total_tests = len(test_funcs)
+    total_tests = len(tests)
     test_results = []
 
     # Possibly show total estimate
-    _show_total_estimate(show_estimates, total_tests, test_funcs, test_durations, root_logger)
+    _show_total_estimate(show_estimates, total_tests, tests, test_durations, root_logger)
 
     # Initialize counters for statistics
     counts = TestStats()
 
     with TestProgress(show_progress, total_tests) as progress:
         # Run tests with progress updates
-        for (fpath, tname, fn, tags, skip, args) in test_funcs:
+        for test in tests:
             # Create a context of the user-specified type
             ctx = context_class(**context_kwargs)
 
@@ -357,10 +369,10 @@ async def run_discovered_tests(
             test_handler = GlobalContextLogHandler(ctx, formatter=SimpleLogFormatter(use_colors=False))
             root_logger.addHandler(test_handler)
 
-            key = f"{fpath}::{tname}"
+            key = f"{test.file}::{test.name}"
             _show_estimate(show_estimates, test_durations, key, root_logger)
 
-            outcome = await run_test_collect_outcome(fpath, tname, fn, tags, skip, args,ctx, root_logger, dry_run)
+            outcome = await run_test_collect_outcome(test, ctx, root_logger, dry_run)
             counts.update(outcome)
 
             test_durations[key] = outcome["duration_s"]
@@ -368,8 +380,8 @@ async def run_discovered_tests(
             root_logger.removeHandler(test_handler)
 
             # Add tags to the log output if present
-            if tags:
-                tag_str = ", ".join(sorted(tags))
+            if test.tags:
+                tag_str = ", ".join(sorted(test.tags))
                 root_logger.info(f"Tags: {tag_str}")
 
             # Update progress bar with new statistics
@@ -384,17 +396,17 @@ async def run_discovered_tests(
     return test_results
 
 
-async def run_test_collect_outcome(fpath, tname, fn, tags, skip, args, ctx, logger, dry_run):
+async def run_test_collect_outcome(test: Test, ctx, logger, dry_run):
     """Try to run a single test and return its outcome."""
     
-    key = f"{fpath}::{tname}"
+    key = f"{test.file}::{test.name}"
     t0 = time.perf_counter()
 
     try:
-        if skip:
+        if test.skip:
             raise SkipTest("Skipped because no arguments were generated.")
         if not dry_run:
-            await run_test_async(fn, ctx, args)
+            await run_test_async(test.function, ctx, test.args)
 
         duration = time.perf_counter() - t0
         status = "pass"
@@ -414,23 +426,23 @@ async def run_test_collect_outcome(fpath, tname, fn, tags, skip, args, ctx, logg
         logger.error(f"FINISHED FAIL: {key} ({duration:.3f}s)\n{traceback.format_exc()}")
 
     outcome = {
-        "file": fpath,
-        "test": tname,
-        "arguments": args,
+        "file": test.file,
+        "test": test.name,
+        "arguments": test.args,
         "status": status,
         "logs": ctx.log_records,
         "artifacts": ctx.artifacts,
         "duration_s": duration,
-        "tags": list(tags)
+        "tags": list(test.tags)
     }
     return outcome
 
 
-def _show_total_estimate(show_estimates, total_tests, test_funcs, test_durations, logger):
+def _show_total_estimate(show_estimates, total_tests, tests: list[Test], test_durations, logger):
     if show_estimates and total_tests > 0:
         sum_known = 0.0
-        for (fpath, tname, _, _, _, _) in test_funcs:
-            key = f"{fpath}::{tname}"
+        for test in tests:
+            key = f"{test.file}::{test.name}"
             sum_known += test_durations.get(key, 0.0)
         if sum_known > 0:
             logger.info(
