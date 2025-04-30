@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from .types import TestResult
 
 
 @dataclass
@@ -10,10 +11,10 @@ class TestStats:
     errors: int = 0
     total_time: float = 0.0
 
-    def update(self, outcome):
-        """Update counters based on test outcome."""
-        status = outcome["status"]
-        logs = outcome["logs"]
+    def update(self, result: TestResult):
+        """Update counters based on test result."""
+        status = result.status
+        logs = result.logs
         if status == "pass":
             self.passed += 1
         elif status == "fail":
@@ -22,12 +23,12 @@ class TestStats:
             self.skipped += 1
         self.warnings += sum(1 for lvl, _ in logs if lvl == "WARNING")
         self.errors += sum(1 for lvl, _ in logs if (lvl == "ERROR" or lvl == "CRITICAL"))
-        self.total_time += outcome["duration_s"]
+        self.total_time += result.duration_s
         return self
 
     @staticmethod
-    def from_results(test_results):
+    def from_results(test_results: list[TestResult]):
         stats = TestStats()
-        for outcome in test_results:
-            stats.update(outcome)
+        for result in test_results:
+            stats.update(result)
         return stats

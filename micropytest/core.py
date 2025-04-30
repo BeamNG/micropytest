@@ -5,54 +5,18 @@ import json
 import traceback
 import inspect
 import time
-from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 import importlib.util
-from typing import Optional
 from .parameters import Args
 from .progress import TestProgress
 from .stats import TestStats
+from .types import Test, TestAttributes, TestResult
 from . import __version__
 
 
 CONFIG_FILE = ".micropytest.json"
 TIME_REPORT_CUTOFF = 0.01 # dont report timings below this
-
-
-@dataclass
-class TestAttributes:
-    """A test function, including tags."""
-    file: str
-    name: str
-    function: callable
-    tags: set[str]
-
-
-@dataclass
-class Test:
-    """A discovered test, including its arguments and tags."""
-    file: str
-    name: str
-    function: callable
-    tags: set[str]
-    args: Optional[Args]
-    skip: bool  # skip because no arguments were generated
-
-    @property
-    def key(self):
-        file = self.file.replace('\\', '/')
-        return f"{file}::{self.name}"
-
-    @property
-    def short_key(self):
-        return f"{os.path.basename(self.file)}::{self.name}"
-
-    @property
-    def short_key_with_args(self):
-        if self.args is None:
-            return self.short_key
-        return f"{self.short_key}{self.args}"
 
 
 class SkipTest(Exception):
@@ -317,7 +281,7 @@ async def run_tests(
     exclude_tags=None,
     show_progress=True,
     dry_run=False,
-):
+) -> list[TestResult]:
     """
     Discover tests and run them.
 
@@ -355,7 +319,7 @@ async def run_discovered_tests(
     context_class=TestContext,
     context_kwargs={},
     dry_run=False,
-):
+) -> list[TestResult]:
     """Run the given set of tests that were discovered in a previous step."""
 
     # Logger
@@ -386,11 +350,11 @@ async def run_discovered_tests(
 
             _show_estimate(show_estimates, test_durations, test.key, root_logger)
 
-            outcome = await run_test_collect_outcome(test, ctx, root_logger, dry_run)
-            counts.update(outcome)
+            result = await run_test_collect_result(test, ctx, root_logger, dry_run)
+            counts.update(result)
 
-            test_durations[test.key] = outcome["duration_s"]
-            test_results.append(outcome)
+            test_durations[test.key] = result.duration_s
+            test_results.append(result)
             root_logger.removeHandler(test_handler)
 
             # Add tags to the log output if present
@@ -410,8 +374,8 @@ async def run_discovered_tests(
     return test_results
 
 
-async def run_test_collect_outcome(test: Test, ctx, logger, dry_run):
-    """Try to run a single test and return its outcome."""
+async def run_test_collect_result(test: Test, ctx, logger, dry_run) -> TestResult:
+    """Try to run a single test and return its result."""
 
     key = test.key
     t0 = time.perf_counter()
@@ -439,14 +403,13 @@ async def run_test_collect_outcome(test: Test, ctx, logger, dry_run):
         status = "fail"
         logger.error(f"FINISHED FAIL: {key} ({duration:.3f}s)\n{traceback.format_exc()}")
 
-    outcome = {
-        "test": test,
-        "status": status,
-        "logs": ctx.log_records,
-        "artifacts": ctx.artifacts,
-        "duration_s": duration,
-    }
-    return outcome
+    return TestResult(
+        test=test,
+        status=status,
+        logs=ctx.log_records,
+        artifacts=ctx.artifacts,
+        duration_s=duration,
+    )
 
 
 def _show_total_estimate(show_estimates, total_tests, tests: list[Test], test_durations, logger):

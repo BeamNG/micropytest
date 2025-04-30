@@ -110,10 +110,10 @@ def console_main():
   """, title="microPyTest", border_style="cyan"))
 
         # Show each test's line with Rich formatting
-        for outcome in test_results:
-            status = outcome["status"]
-            duration_s = outcome["duration_s"]
-            test_key = outcome["test"].short_key_with_args
+        for result in test_results:
+            status = result.status
+            duration_s = result.duration_s
+            test_key = result.test.short_key_with_args
 
             duration_str = f" in {duration_s:.2g} seconds" if duration_s > TIME_REPORT_CUTOFF else ""
             
@@ -129,10 +129,10 @@ def console_main():
             console.print(f"{test_key:50s} - {status_display:20}{duration_str}", highlight=False)
 
             if args.verbose:
-                for (lvl, msg) in outcome["logs"]:
+                for (lvl, msg) in result.logs:
                     console.print(f"  {msg}")
-                if outcome["artifacts"]:
-                    console.print(f"  Artifacts: {outcome['artifacts']}")
+                if result.artifacts:
+                    console.print(f"  Artifacts: {result.artifacts}")
                 console.print()
 
     # Build the final summary with Rich formatting

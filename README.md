@@ -48,7 +48,7 @@ You can **run** them from a Python script:
 import micropytest.core
 
 results = micropytest.core.run_tests(tests_path="my_tests")
-passed = sum(r["status"] == "pass" for r in results)
+passed = sum(r.status == "pass" for r in results)
 total = len(results)
 print(f"Test run complete: {passed}/{total} passed")
 ```
