@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 import importlib.util
+from rich.progress import Progress, TextColumn, BarColumn, SpinnerColumn, TimeElapsedColumn, TimeRemainingColumn
 
 from .parameters import Args
 from . import __version__
@@ -300,6 +301,7 @@ class TestStats:
             stats.update(outcome)
         return stats
 
+
 @dataclass
 class TestAttributes:
     file: str
@@ -373,14 +375,14 @@ async def run_discovered_tests(
     _show_total_estimate(show_estimates, total_tests, test_funcs, test_durations, root_logger)
 
     # Initialize progress bar if requested
-    progress, task_id = _initialize_progress_bar(show_progress, total_tests, root_logger)
+    progress, task_id = _initialize_progress_bar(show_progress, total_tests)
 
     # Initialize counters for statistics
     counts = TestStats()
 
     try:
         # Run tests with progress updates
-        for i, (fpath, tname, fn, tags, skip, args) in enumerate(test_funcs):
+        for (fpath, tname, fn, tags, skip, args) in test_funcs:
             # Create a context of the user-specified type
             ctx = context_class(**context_kwargs)
 
@@ -404,7 +406,7 @@ async def run_discovered_tests(
                 root_logger.info(f"Tags: {tag_str}")
 
             # Update progress with new statistics
-            _update_progress_bar(progress, task_id, i, total_tests, root_logger, counts)
+            _update_progress_bar(progress, task_id, counts)
 
     finally:
         _finalize_progress_bar(progress)
@@ -481,63 +483,42 @@ def _show_estimate(show_estimates, test_durations, key, logger):
         logger.info(f"STARTING: {key}{est_str}")
 
 
-def _initialize_progress_bar(show_progress, total_tests, logger):
+def _initialize_progress_bar(show_progress, total_tests):
     progress = None
     task_id = None
-    
+
     if show_progress:
-        try:
-            from rich.progress import Progress, TextColumn, BarColumn, SpinnerColumn
-            from rich.progress import TimeElapsedColumn, TimeRemainingColumn
-            
-            progress = Progress(
-                SpinnerColumn(),
-                TextColumn("[bold blue]{task.description}"),
-                BarColumn(complete_style="green", finished_style="green", pulse_style="yellow", bar_width=None),
-                TextColumn("{task.percentage:>3.0f}%"),
-                TimeElapsedColumn(),
-                TimeRemainingColumn(),
-                TextColumn("{task.fields[stats]}"),
-                expand=False
-            )
-            
-            task_id = progress.add_task(
-                "[cyan]Running tests...", 
-                total=total_tests,
-                stats="[green]  0✓[/green] [red]  0✗[/red] [magenta]  0→[/magenta] [yellow]  0⚠[/yellow] "
-            )
-            progress.start()
-        except ImportError:
-            logger.warning("Rich library not installed. Progress bar not available.")
-        except Exception as e:
-            logger.warning(f"Failed to initialize progress bar: {e}")
-            progress = None
-            task_id = None
+        progress = Progress(
+            SpinnerColumn(),
+            TextColumn("[bold blue]{task.description}"),
+            BarColumn(complete_style="green", finished_style="green", pulse_style="yellow", bar_width=None),
+            TextColumn("{task.percentage:>3.0f}%"),
+            TimeElapsedColumn(),
+            TimeRemainingColumn(),
+            TextColumn("{task.fields[stats]}"),
+            expand=False,
+        )
+        task_id = progress.add_task(
+            "[cyan]Running tests...", 
+            total=total_tests,
+            stats="[green]  0✓[/green] [red]  0✗[/red] [magenta]  0→[/magenta] [yellow]  0⚠[/yellow] "
+        )
+        progress.start()
+
     return progress, task_id
 
 
-def _update_progress_bar(progress, task_id, i, total_tests, logger, counts):
+def _update_progress_bar(progress, task_id, counts):
     if progress and task_id is not None:
-        try:
-            description = '[green]Running tests...'
-            stats = (
-                f"[green]{counts.passed:3d}✓[/green] [red]{counts.failed:3d}✗[/red] "
-                f"[magenta]{counts.skipped:3d}→[/magenta] [yellow]{counts.warnings:3d}⚠[/yellow] "
-            )
-            progress.update(task_id, advance=1, description=description, stats=stats)
-        except Exception as e:
-            # If updating the progress bar fails, log it but continue
-            logger.debug(f"Failed to update progress bar: {e}")
-        
-        # Add a small delay to make the status visible
-        if i < total_tests - 1:  # Not the last test
-            time.sleep(0.1)
+        description = '[green]Running tests...'
+        stats = (
+            f"[green]{counts.passed:3d}✓[/green] [red]{counts.failed:3d}✗[/red] "
+            f"[magenta]{counts.skipped:3d}→[/magenta] [yellow]{counts.warnings:3d}⚠[/yellow] "
+        )
+        progress.update(task_id, advance=1, description=description, stats=stats)
 
 
 def _finalize_progress_bar(progress):
     # Ensure progress bar is stopped
     if progress:
-        try:
-            progress.stop()
-        except Exception:
-            pass
+        progress.stop()
