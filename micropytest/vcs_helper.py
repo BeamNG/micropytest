@@ -6,6 +6,26 @@ from datetime import datetime
 import xml.etree.ElementTree as ET
 from abc import ABC, abstractmethod
 from typing import Optional
+from os import PathLike
+from dataclasses import dataclass
+
+
+@dataclass
+class VCSInfo:
+    name: str
+    email: Optional[str]
+    timestamp: int
+    date: datetime
+
+
+@dataclass
+class VCSHistoryEntry:
+    revision: str
+    author: str
+    email: Optional[str]
+    timestamp: int
+    date: datetime
+    message: str
 
 
 class VCSInterface(ABC):
@@ -13,32 +33,32 @@ class VCSInterface(ABC):
     name = None
 
     @abstractmethod
-    def is_used(self, file_path) -> bool:
+    def is_used(self, file_path: PathLike) -> bool:
         """Check if this VCS is used in the given file."""
         pass
 
     @abstractmethod
-    def get_file_creator(self, file_path):
+    def get_file_creator(self, file_path: PathLike) -> VCSInfo:
         """Get the creator of a file."""
         pass
 
     @abstractmethod
-    def get_last_modifier(self, file_path):
+    def get_last_modifier(self, file_path: PathLike) -> VCSInfo:
         """Get the last person who modified a file."""
         pass
 
     @abstractmethod
-    def get_line_author(self, file_path, line_number):
+    def get_line_author(self, file_path: PathLike, line_number: int) -> VCSInfo:
         """Get the author of a specific line."""
         pass
 
     @abstractmethod
-    def get_line_commit_message(self, file_path, line_number):
+    def get_line_commit_message(self, file_path: PathLike, line_number: int) -> str:
         """Get the commit message for a specific line."""
         pass
 
     @abstractmethod
-    def get_file_history(self, file_path, limit=5):
+    def get_file_history(self, file_path: PathLike, limit: int = 5) -> list[VCSHistoryEntry]:
         """Get file history (last N changes)."""
         pass
 
@@ -73,12 +93,12 @@ class GitVCS(VCSInterface):
             first_line = result.stdout.strip().split('\n')[0]
             if first_line:
                 author, email, timestamp = first_line.split('|')
-                return {
-                    'name': author,
-                    'email': email,
-                    'timestamp': int(timestamp),
-                    'date': datetime.fromtimestamp(int(timestamp)).strftime('%Y-%m-%d %H:%M:%S')
-                }
+                return VCSInfo(
+                    name=author,
+                    email=email,
+                    timestamp=int(timestamp),
+                    date=datetime.fromtimestamp(int(timestamp)).strftime('%Y-%m-%d %H:%M:%S'),
+                )
         except (subprocess.SubprocessError, ValueError, IndexError):
             pass
 
@@ -93,12 +113,12 @@ class GitVCS(VCSInterface):
             )
             if result.stdout.strip():
                 author, email, timestamp = result.stdout.strip().split('|')
-                return {
-                    'name': author,
-                    'email': email,
-                    'timestamp': int(timestamp),
-                    'date': datetime.fromtimestamp(int(timestamp)).strftime('%Y-%m-%d %H:%M:%S')
-                }
+                return VCSInfo(
+                    name=author,
+                    email=email,
+                    timestamp=int(timestamp),
+                    date=datetime.fromtimestamp(int(timestamp)).strftime('%Y-%m-%d %H:%M:%S'),
+                )
         except (subprocess.SubprocessError, ValueError):
             pass
 
@@ -125,12 +145,12 @@ class GitVCS(VCSInterface):
                     timestamp = int(line[11:].strip())
 
             if author:
-                return {
-                    'name': author,
-                    'email': email,
-                    'timestamp': timestamp,
-                    'date': datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S') if timestamp else "unknown"
-                }
+                return VCSInfo(
+                    name=author,
+                    email=email,
+                    timestamp=timestamp,
+                    date=datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S') if timestamp else "unknown"
+                )
         except subprocess.SubprocessError:
             pass
 
@@ -159,7 +179,7 @@ class GitVCS(VCSInterface):
 
     def get_file_history(self, file_path, limit=5):
         """Get file history (last N changes) in Git."""
-        history = []
+        history: list[VCSHistoryEntry] = []
 
         try:
             result = subprocess.run(
@@ -172,14 +192,14 @@ class GitVCS(VCSInterface):
                     parts = line.split('|', 4)
                     if len(parts) == 5:
                         hash_val, author, email, timestamp, subject = parts
-                        history.append({
-                            'hash': hash_val,
-                            'author': author,
-                            'email': email,
-                            'timestamp': int(timestamp),
-                            'date': datetime.fromtimestamp(int(timestamp)).strftime('%Y-%m-%d %H:%M:%S'),
-                            'subject': subject
-                        })
+                        history.append(VCSHistoryEntry(
+                            revision=hash_val,
+                            author=author,
+                            email=email,
+                            timestamp=int(timestamp),
+                            date=datetime.fromtimestamp(int(timestamp)).strftime('%Y-%m-%d %H:%M:%S'),
+                            message=subject,
+                        ))
         except subprocess.SubprocessError:
             raise VCSError("Could not retrieve file history")
 
@@ -217,19 +237,14 @@ class SVNVCS(VCSInterface):
                 date_str = entry.find('date').text
 
                 # Parse ISO 8601 date
-                try:
-                    timestamp = time.mktime(time.strptime(date_str[:19], '%Y-%m-%dT%H:%M:%S'))
-                    date_formatted = datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
-                except ValueError:
-                    timestamp = None
-                    date_formatted = "unknown"
+                timestamp = int(time.mktime(time.strptime(date_str[:19], '%Y-%m-%dT%H:%M:%S')))
 
-                return {
-                    'name': author,
-                    'email': f"{author}@your-domain.com",  # SVN doesn't store emails by default
-                    'timestamp': timestamp,
-                    'date': date_formatted
-                }
+                return VCSInfo(
+                    name=author,
+                    email=None,  # SVN doesn't store emails by default
+                    timestamp=timestamp,
+                    date=datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S'),
+                )
         except (subprocess.SubprocessError, ET.ParseError):
             pass
 
@@ -254,21 +269,16 @@ class SVNVCS(VCSInterface):
 
             if author and date_str:
                 # Parse date string
-                try:
-                    # Format is typically: "2023-04-15 10:30:45 +0000 (Sat, 15 Apr 2023)"
-                    date_part = date_str.split('(')[0].strip()
-                    timestamp = time.mktime(time.strptime(date_part[:19], '%Y-%m-%d %H:%M:%S'))
-                    date_formatted = datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
-                except ValueError:
-                    timestamp = None
-                    date_formatted = "unknown"
+                # Format is typically: "2023-04-15 10:30:45 +0000 (Sat, 15 Apr 2023)"
+                date_part = date_str.split('(')[0].strip()
+                timestamp = int(time.mktime(time.strptime(date_part[:19], '%Y-%m-%d %H:%M:%S')))
 
-                return {
-                    'name': author,
-                    'email': f"{author}@your-domain.com",  # SVN doesn't store emails by default
-                    'timestamp': timestamp,
-                    'date': date_formatted
-                }
+                return VCSInfo(
+                    name=author,
+                    email=None,  # SVN doesn't store emails by default
+                    timestamp=timestamp,
+                    date=datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S'),
+                )
         except subprocess.SubprocessError:
             pass
 
@@ -302,30 +312,24 @@ class SVNVCS(VCSInterface):
                         if log_line.startswith('r') and '|' in log_line:
                             date_str = log_line.split('|')[2].strip()
                             break
+                    if date_str is None:
+                        raise VCSError("Could not determine line author date")
 
                     # Parse date string
-                    timestamp = None
-                    date_formatted = "unknown"
-                    if date_str:
-                        try:
-                            timestamp = time.mktime(time.strptime(date_str[:19], '%Y-%m-%d %H:%M:%S'))
-                            date_formatted = datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
-                        except ValueError:
-                            pass
+                    timestamp = int(time.mktime(time.strptime(date_str[:19], '%Y-%m-%d %H:%M:%S')))
 
-                    return {
-                        'name': author,
-                        'email': f"{author}@your-domain.com",  # SVN doesn't store emails by default
-                        'timestamp': timestamp,
-                        'date': date_formatted,
-                        'revision': revision
-                    }
+                return VCSInfo(
+                    name=author,
+                    email=None,  # SVN doesn't store emails by default
+                    timestamp=timestamp,
+                    date=datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S'),
+                )
         except subprocess.SubprocessError:
             pass
 
         raise VCSError("Could not determine line author")
 
-    def get_line_commit_message(self, file_path, line_number):
+    def get_line_commit_message(self, file_path, line_number) -> str:
         """Get the commit message for a specific line in SVN."""
         try:
             # First get the revision for this line
@@ -363,7 +367,7 @@ class SVNVCS(VCSInterface):
 
     def get_file_history(self, file_path, limit=5):
         """Get file history (last N changes) in SVN."""
-        history = []
+        history: list[VCSHistoryEntry] = []
 
         try:
             result = subprocess.run(
@@ -390,22 +394,16 @@ class SVNVCS(VCSInterface):
                         date_str = header_parts[2].strip()
 
                         # Parse date string
-                        timestamp = None
-                        date_formatted = "unknown"
-                        try:
-                            timestamp = time.mktime(time.strptime(date_str[:19], '%Y-%m-%d %H:%M:%S'))
-                            date_formatted = datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
-                        except ValueError:
-                            pass
+                        timestamp = int(time.mktime(time.strptime(date_str[:19], '%Y-%m-%d %H:%M:%S')))
 
-                        history.append({
-                            'revision': revision,
-                            'author': author,
-                            'email': f"{author}@your-domain.com",
-                            'timestamp': timestamp,
-                            'date': date_formatted,
-                            'message': message
-                        })
+                        history.append(VCSHistoryEntry(
+                            revision=revision,
+                            author=author,
+                            email=None,
+                            timestamp=timestamp,
+                            date=datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S'),
+                            message=message,
+                        ))
         except subprocess.SubprocessError:
             raise VCSError("Could not retrieve file history")
 

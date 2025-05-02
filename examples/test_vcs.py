@@ -2,6 +2,7 @@
 import os
 from micropytest.vcs_helper import VCSHelper, VCSError
 from micropytest.decorators import tag
+from dataclasses import asdict
 
 
 @tag('vcs', 'git', 'integration')
@@ -31,14 +32,14 @@ def test_vcs_helper(ctx):
     ctx.info("File Creator Information:")
     try:
         creator = vcs.get_file_creator(current_file)
-        ctx.info(f"  Created by: {creator['name']}")
-        ctx.info(f"  Email: {creator['email']}")
-        ctx.info(f"  Creation date: {creator['date']}")
+        ctx.info(f"  Created by: {creator.name}")
+        ctx.info(f"  Email: {creator.email}")
+        ctx.info(f"  Creation date: {creator.date}")
         # Store creator info as an artifact
         ctx.add_artifact("file_creator", creator)
 
         # Add an assertion to verify creator info
-        assert creator['name'], "Creator name should not be empty"
+        assert creator.name, "Creator name should not be empty"
     except VCSError as e:
         ctx.error(f"  {e}")
 
@@ -47,9 +48,9 @@ def test_vcs_helper(ctx):
 
     try:
         last_modifier = vcs.get_last_modifier(current_file)
-        ctx.info(f"  Last modified by: {last_modifier['name']}")
-        ctx.info(f"  Email: {last_modifier['email']}")
-        ctx.info(f"  Last modified on: {last_modifier['date']}")
+        ctx.info(f"  Last modified by: {last_modifier.name}")
+        ctx.info(f"  Email: {last_modifier.email}")
+        ctx.info(f"  Last modified on: {last_modifier.date}")
         # Store last modifier info as an artifact
         ctx.add_artifact("last_modifier", last_modifier)
     except VCSError as e:
@@ -74,9 +75,9 @@ def test_vcs_helper(ctx):
             # Get author of this function
             try:
                 line_author = vcs.get_line_author(current_file, function_line)
-                ctx.info(f"  Function written by: {line_author['name']}")
-                ctx.info(f"  Email: {line_author['email']}")
-                ctx.info(f"  Written on: {line_author['date']}")
+                ctx.info(f"  Function written by: {line_author.name}")
+                ctx.info(f"  Email: {line_author.email}")
+                ctx.info(f"  Written on: {line_author.date}")
 
                 # Get commit message
                 commit_msg = vcs.get_line_commit_message(current_file, function_line)
@@ -84,7 +85,7 @@ def test_vcs_helper(ctx):
                     ctx.info(f"  Commit message: {commit_msg}")
                     # Store function author info as an artifact
                     ctx.add_artifact("function_author", {
-                        "author": line_author,
+                        "author": asdict(line_author),
                         "commit_message": commit_msg
                     })
             except VCSError as e:
@@ -98,20 +99,13 @@ def test_vcs_helper(ctx):
     ctx.info("File History (last 5 changes):")
     try:
         history = vcs.get_file_history(current_file, 5)
-        history_entries = []
         for i, entry in enumerate(history, 1):
             entry_info = f"  {i}. "
-            if 'hash' in entry:  # Git
-                entry_info += f"{entry['hash']} - {entry['author']} ({entry['date']})"
-                ctx.info(entry_info)
-                ctx.info(f"     {entry['subject']}")
-            else:  # SVN
-                entry_info += f"r{entry['revision']} - {entry['author']} ({entry['date']})"
-                ctx.info(entry_info)
-                ctx.info(f"     {entry['message']}")
-            history_entries.append(entry)
+            entry_info += f"{entry.revision} - {entry.author} ({entry.date})"
+            ctx.info(entry_info)
+            ctx.info(f"     {entry.message}")
         # Store history as an artifact
-        ctx.add_artifact("file_history", history_entries)
+        ctx.add_artifact("file_history", [asdict(h) for h in history])
     except VCSError as e:
         ctx.error(f"  {e}")
 
@@ -137,9 +131,9 @@ def test_vcs_helper(ctx):
 
             try:
                 line_author = vcs.get_line_author(current_file, line_num)
-                ctx.info(f"    Author: {line_author['name']}")
-                ctx.info(f"    Last modified: {line_author['date']}")
-                line_analysis[line_num] = line_author
+                ctx.info(f"    Author: {line_author.name}")
+                ctx.info(f"    Last modified: {line_author.date}")
+                line_analysis[line_num] = asdict(line_author)
             except VCSError as e:
                 ctx.error(f"    {e}")
 
