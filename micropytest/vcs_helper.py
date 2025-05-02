@@ -133,7 +133,6 @@ class GitVCS(VCSInterface):
             author = None
             email = None
             timestamp = None
-
             for line in result.stdout.split('\n'):
                 if line.startswith('author '):
                     author = line[7:].strip()
@@ -144,12 +143,11 @@ class GitVCS(VCSInterface):
             if author is None or email is None or timestamp is None:
                 raise VCSError("Could not determine line author")
 
-            if author:
-                return VCSInfo(
-                    name=author,
-                    email=email,
-                    timestamp=timestamp,
-                )
+            return VCSInfo(
+                name=author,
+                email=email,
+                timestamp=timestamp,
+            )
         except subprocess.SubprocessError:
             pass
 
@@ -209,8 +207,7 @@ class SVNVCS(VCSInterface):
     def is_used(self, file_path) -> bool:
         """Check if SVN is used for the given file."""
         try:
-            result = subprocess.run(['svn', 'info', file_path],
-                                   capture_output=True, text=True, check=False)
+            result = subprocess.run(['svn', 'info', file_path], capture_output=True, text=True, check=False)
             if result.returncode == 0:
                 return True
         except FileNotFoundError:
