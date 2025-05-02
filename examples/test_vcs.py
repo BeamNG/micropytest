@@ -5,7 +5,7 @@ import subprocess
 import stat
 from pathlib import Path
 from time import sleep
-from micropytest.vcs_helper import VCSHelper, VCSError
+from micropytest.vcs_helper import VCSHelper, VCSError, VCSInfo, VCSHistoryEntry
 from micropytest.decorators import tag
 from dataclasses import asdict
 
@@ -53,6 +53,7 @@ def vcs_helper_function(ctx, file_path):
     ctx.info("File Creator Information:")
     try:
         creator = vcs.get_file_creator(current_file)
+        assert isinstance(creator, VCSInfo)
         ctx.info(f"  Created by: {creator.name}")
         ctx.info(f"  Email: {creator.email}")
         ctx.info(f"  Creation date: {creator.date}")
@@ -69,6 +70,7 @@ def vcs_helper_function(ctx, file_path):
 
     try:
         last_modifier = vcs.get_last_modifier(current_file)
+        assert isinstance(last_modifier, VCSInfo)
         ctx.info(f"  Last modified by: {last_modifier.name}")
         ctx.info(f"  Email: {last_modifier.email}")
         ctx.info(f"  Last modified on: {last_modifier.date}")
@@ -96,12 +98,14 @@ def vcs_helper_function(ctx, file_path):
             # Get author of this function
             try:
                 line_author = vcs.get_line_author(current_file, function_line)
+                assert isinstance(line_author, VCSInfo)
                 ctx.info(f"  Function written by: {line_author.name}")
                 ctx.info(f"  Email: {line_author.email}")
                 ctx.info(f"  Written on: {line_author.date}")
 
                 # Get commit message
                 commit_msg = vcs.get_line_commit_message(current_file, function_line)
+                assert isinstance(commit_msg, str)
                 ctx.info(f"  Commit message: {commit_msg}")
                 # Store function author info as an artifact
                 ctx.add_artifact("function_author", {
@@ -120,6 +124,7 @@ def vcs_helper_function(ctx, file_path):
     try:
         history = vcs.get_file_history(current_file, 5)
         for i, entry in enumerate(history, 1):
+            assert isinstance(entry, VCSHistoryEntry)
             entry_info = f"  {i}. "
             entry_info += f"{entry.revision} - {entry.author.name} ({entry.author.date})"
             ctx.info(entry_info)
@@ -151,6 +156,7 @@ def vcs_helper_function(ctx, file_path):
 
             try:
                 line_author = vcs.get_line_author(current_file, line_num)
+                assert isinstance(line_author, VCSInfo)
                 ctx.info(f"    Author: {line_author.name}")
                 ctx.info(f"    Last modified: {line_author.date}")
                 line_analysis[line_num] = asdict(line_author)
