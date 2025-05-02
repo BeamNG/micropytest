@@ -1,5 +1,10 @@
 # test_vcs.py
 import os
+from shutil import rmtree
+import subprocess
+import stat
+from pathlib import Path
+from time import sleep
 from micropytest.vcs_helper import VCSHelper, VCSError
 from micropytest.decorators import tag
 from dataclasses import asdict
@@ -14,10 +19,13 @@ def test_vcs_helper_git(ctx):
 @tag('vcs', 'svn', 'integration')
 def test_vcs_helper_svn(ctx):
     """Run a test that dumps VCS information about a dummy SVN file."""
-    if True:
+    # Only run this test in CT, where subversion must be installed
+    if not os.environ.get("CI"):
         ctx.skip_test("Skipping test_vcs_helper_svn.")
-    svn_file = "svn_repo/hello.txt"
-    vcs_helper_function(ctx, svn_file)
+
+    with DummySVNRepo("svn_repo") as repo:
+        svn_file = os.path.join(repo.working_copy_path, "hello.txt")
+        vcs_helper_function(ctx, svn_file)
 
 
 def vcs_helper_function(ctx, file_path):
@@ -49,7 +57,7 @@ def vcs_helper_function(ctx, file_path):
         ctx.info(f"  Email: {creator.email}")
         ctx.info(f"  Creation date: {creator.date}")
         # Store creator info as an artifact
-        ctx.add_artifact("file_creator", creator)
+        ctx.add_artifact("file_creator", asdict(creator))
 
         # Add an assertion to verify creator info
         assert creator.name, "Creator name should not be empty"
@@ -65,7 +73,7 @@ def vcs_helper_function(ctx, file_path):
         ctx.info(f"  Email: {last_modifier.email}")
         ctx.info(f"  Last modified on: {last_modifier.date}")
         # Store last modifier info as an artifact
-        ctx.add_artifact("last_modifier", last_modifier)
+        ctx.add_artifact("last_modifier", asdict(last_modifier))
     except VCSError as e:
         ctx.error(f"  {e}")
 
@@ -78,7 +86,7 @@ def vcs_helper_function(ctx, file_path):
 
         function_line = 0
         for i, line in enumerate(lines, 1):
-            if "def test_vcs_helper_git" in line:
+            if "def test_vcs_helper" in line:
                 function_line = i
                 break
 
@@ -153,3 +161,64 @@ def vcs_helper_function(ctx, file_path):
         ctx.add_artifact("line_analysis", line_analysis)
     except Exception as e:
         ctx.error(f"  Error in line-by-line analysis: {str(e)}")
+
+
+class DummySVNRepo:
+    def __init__(self, path):
+        path = os.path.abspath(path)
+        self.path = path
+        self.repo_path = os.path.join(path, 'repo')
+        self.working_copy_path = os.path.join(path, 'working_copy')
+        self.url = Path(self.repo_path).absolute().as_uri()
+
+    def setup(self):
+        if os.path.exists(self.path):
+            raise RuntimeError(f"Path {self.path} already exists")
+
+        try:
+            os.makedirs(self.repo_path, exist_ok=True)
+
+            # Create repository
+            subprocess.check_call(['svnadmin', 'create', self.repo_path])
+
+            # Create an initial layout for the repo
+            # We'll create trunk/ with a file inside
+            layout_dir = os.path.join(self.path, 'import_layout')
+            os.makedirs(os.path.join(layout_dir, 'trunk'))
+            with open(os.path.join(layout_dir, 'trunk', 'hello.txt'), 'w') as f:
+                f.write('Hello SVN!\n')
+
+            # Import the layout into the repo
+            subprocess.check_call(['svn', 'import', layout_dir, self.url, '-m', 'Initial commit'])
+
+            # Checkout trunk to working copy
+            subprocess.check_call(['svn', 'checkout', f'{self.url}/trunk', self.working_copy_path])
+
+            # Make 2 more changes to the file and commit them
+            sleep(2)
+            with open(os.path.join(self.working_copy_path, 'hello.txt'), 'a') as f:
+                f.write('Hello again!\n')
+            subprocess.check_call(['svn', 'commit', self.working_copy_path, '-m', 'Second commit'])
+            sleep(2)
+            with open(os.path.join(self.working_copy_path, 'hello.txt'), 'a') as f:
+                f.write('Hello a third time!\n\ndef test_vcs_helper:\n    pass\n')
+            subprocess.check_call(['svn', 'commit', self.working_copy_path, '-m', 'Third commit'])
+
+        except Exception as e:
+            self.cleanup()
+            raise RuntimeError(f"Failed to setup dummy SVN repo: {e}")
+
+    def cleanup(self):
+        def remove_readonly(func, path, excinfo):
+            os.chmod(path, stat.S_IWRITE)  # Attempt to make file writable
+            func(path)  # Retry the remove/delete
+
+        if os.path.isdir(self.path):
+            rmtree(self.path, onerror=remove_readonly)
+
+    def __enter__(self):
+        self.setup()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.cleanup()
