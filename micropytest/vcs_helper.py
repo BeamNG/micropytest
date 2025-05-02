@@ -1,11 +1,11 @@
 """A helper module for version control system operations."""
 
-import os
 import subprocess
 import time
 from datetime import datetime
 import xml.etree.ElementTree as ET
 from abc import ABC, abstractmethod
+from typing import Optional
 
 
 class VCSInterface(ABC):
@@ -185,6 +185,7 @@ class GitVCS(VCSInterface):
             return None, "Could not retrieve file history"
         
         return history
+
 
 class SVNVCS(VCSInterface):
     """SVN implementation of the VCS interface."""
@@ -417,60 +418,21 @@ class SVNVCS(VCSInterface):
         
         return history
 
+
 class VCSHelper:
     def __init__(self, handlers=None):
         if handlers is None:
             handlers = [SVNVCS(), GitVCS()]
         self.handlers = handlers
 
-    def detect_vcs(self, path):
+    def detect_vcs(self, path) -> Optional[str]:
         """Detect which version control system is being used."""
         h = self.get_vcs_handler(path)
         return h.name if h else None
 
-    def get_vcs_handler(self, path):
+    def get_vcs_handler(self, path) -> Optional[VCSInterface]:
         """Get the appropriate VCS implementation based on the repository type."""
         for handler in self.handlers:
             if handler.is_used(path):
                 return handler
         return None
-
-    def get_file_creator(self, file_path):
-        """Get the creator of a file."""
-        vcs_handler = self.get_vcs_handler(os.path.dirname(file_path))
-        if not vcs_handler:
-            return None, "No version control system detected"
-        
-        return vcs_handler.get_file_creator(file_path)
-
-    def get_last_modifier(self, file_path):
-        """Get the last person who modified a file."""
-        vcs_handler = self.get_vcs_handler(os.path.dirname(file_path))
-        if not vcs_handler:
-            return None, "No version control system detected"
-        
-        return vcs_handler.get_last_modifier(file_path)
-
-    def get_line_author(self, file_path, line_number):
-        """Get the author of a specific line."""
-        vcs_handler = self.get_vcs_handler(os.path.dirname(file_path))
-        if not vcs_handler:
-            return None, "No version control system detected"
-        
-        return vcs_handler.get_line_author(file_path, line_number)
-
-    def get_line_commit_message(self, file_path, line_number):
-        """Get the commit message for a specific line."""
-        vcs_handler = self.get_vcs_handler(os.path.dirname(file_path))
-        if not vcs_handler:
-            return None, "No version control system detected"
-        
-        return vcs_handler.get_line_commit_message(file_path, line_number)
-
-    def get_file_history(self, file_path, limit=5):
-        """Get file history (last N changes)."""
-        vcs_handler = self.get_vcs_handler(os.path.dirname(file_path))
-        if not vcs_handler:
-            return None, "No version control system detected"
-        
-        return vcs_handler.get_file_history(file_path, limit)

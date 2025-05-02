@@ -3,31 +3,33 @@ import os
 from micropytest.vcs_helper import VCSHelper
 from micropytest.decorators import tag
 
-# You could use custom VCS by passing the handlers argument to the constructor to supply a list of
-# VCSInterface implementations
-vcs_helper = VCSHelper()
-
 
 @tag('vcs', 'git', 'integration')
 def test_vcs_helper(ctx):
     """Run a test that dumps VCS information about this file."""
     # Get the path of the current file
     current_file = os.path.abspath(__file__)
-    
+
+    # You could use custom VCS by passing the handlers argument to the constructor to supply a list of
+    # VCSInterface implementations
+    vcs_helper = VCSHelper()
+
     ctx.info(f"VCS Test")
     ctx.info(f"=============")
     ctx.info(f"Testing file: {current_file}")
-    
+
     # Detect VCS
     vcs_type = vcs_helper.detect_vcs(os.path.dirname(current_file))
     ctx.info(f"Version Control System: {vcs_type or 'None detected'}")
-    
+
     # Test the VCS detection
     assert vcs_type is not None, "VCS type should be detected"
-    
+    vcs = vcs_helper.get_vcs_handler(os.path.dirname(current_file))
+    assert vcs is not None, "VCS should be detected"
+
     # Get file creator info
     ctx.info("File Creator Information:")
-    creator = vcs_helper.get_file_creator(current_file)
+    creator = vcs.get_file_creator(current_file)
     if creator and not isinstance(creator, tuple):
         ctx.info(f"  Created by: {creator['name']}")
         ctx.info(f"  Email: {creator['email']}")
@@ -43,7 +45,7 @@ def test_vcs_helper(ctx):
     
     # Get last modifier info
     ctx.info("Last Modifier Information:")
-    last_modifier = vcs_helper.get_last_modifier(current_file)
+    last_modifier = vcs.get_last_modifier(current_file)
     if last_modifier and not isinstance(last_modifier, tuple):
         ctx.info(f"  Last modified by: {last_modifier['name']}")
         ctx.info(f"  Email: {last_modifier['email']}")
@@ -71,14 +73,14 @@ def test_vcs_helper(ctx):
             ctx.info(f"  Function starts at line: {function_line}")
             
             # Get author of this function
-            line_author = vcs_helper.get_line_author(current_file, function_line)
+            line_author = vcs.get_line_author(current_file, function_line)
             if line_author and not isinstance(line_author, tuple):
                 ctx.info(f"  Function written by: {line_author['name']}")
                 ctx.info(f"  Email: {line_author['email']}")
                 ctx.info(f"  Written on: {line_author['date']}")
                 
                 # Get commit message
-                commit_msg = vcs_helper.get_line_commit_message(current_file, function_line)
+                commit_msg = vcs.get_line_commit_message(current_file, function_line)
                 if commit_msg and not isinstance(commit_msg, tuple):
                     ctx.info(f"  Commit message: {commit_msg}")
                     # Store function author info as an artifact
@@ -96,7 +98,7 @@ def test_vcs_helper(ctx):
     
     # Get file history
     ctx.info("File History (last 5 changes):")
-    history = vcs_helper.get_file_history(current_file, 5)
+    history = vcs.get_file_history(current_file, 5)
     if history and not isinstance(history, tuple):
         history_entries = []
         for i, entry in enumerate(history, 1):
@@ -135,7 +137,7 @@ def test_vcs_helper(ctx):
         line_analysis = {}
         for line_num in sample_lines:
             ctx.info(f"\n  Line {line_num}: {lines[line_num-1].strip()}")
-            line_author = vcs_helper.get_line_author(current_file, line_num)
+            line_author = vcs.get_line_author(current_file, line_num)
             
             if line_author and not isinstance(line_author, tuple):
                 ctx.info(f"    Author: {line_author['name']}")
