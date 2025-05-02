@@ -28,6 +28,23 @@ class VCSHistoryEntry:
     message: str
 
 
+@dataclass
+class ChangeSet:
+    files: list[str]
+
+    def has_changes(self, relative_path: PathLike) -> bool:
+        """Check if the given relative path (file or directory) has changes."""
+        raise NotImplementedError()
+
+    def get_changed_directories(self, relative_path: PathLike) -> list[str]:
+        """Get the list of changed directories directly under the given path."""
+        raise NotImplementedError()
+
+    def get_changed_files(self, relative_path: PathLike) -> list[str]:
+        """Get the list of changed files directly under the given path."""
+        raise NotImplementedError()
+
+
 class VCSInterface(ABC):
     """Abstract base class defining the interface for VCS operations."""
     name = None
@@ -60,6 +77,16 @@ class VCSInterface(ABC):
     @abstractmethod
     def get_file_history(self, file_path: PathLike, limit: int = 5) -> list[VCSHistoryEntry]:
         """Get file history (last N changes)."""
+        pass
+
+    @abstractmethod
+    def get_last_commit(self, repo_path: PathLike) -> VCSHistoryEntry:
+        """Get information about the last commit."""
+        pass
+
+    @abstractmethod
+    def get_changed_files(self, repo_path: PathLike, revision: str) -> ChangeSet:
+        """Get changed files (relative to repo path) of a given commit, with respect to the previous commit."""
         pass
 
 
@@ -198,6 +225,15 @@ class GitVCS(VCSInterface):
             raise VCSError("Could not retrieve file history")
 
         return history
+
+    def get_last_commit(self, repo_path: PathLike) -> VCSHistoryEntry:
+        """Get information about the last commit."""
+        raise NotImplementedError()
+
+    def get_changed_files(self, repo_path: PathLike, revision: str) -> ChangeSet:
+        """Get changed files (relative to repo path) of a given commit, with respect to the previous commit."""
+        # Previous commit in Git = first parent commit (i.e. the previous state of the branch that was merged into)
+        raise NotImplementedError()
 
 
 class SVNVCS(VCSInterface):
@@ -395,6 +431,15 @@ class SVNVCS(VCSInterface):
             raise VCSError("Could not retrieve file history")
 
         return history
+
+    def get_last_commit(self, repo_path: PathLike) -> VCSHistoryEntry:
+        """Get information about the last commit."""
+        raise NotImplementedError()
+
+    def get_changed_files(self, repo_path: PathLike, revision: str) -> ChangeSet:
+        """Get changed files (relative to repo path) of a given commit, with respect to the previous commit."""
+        revision = str(revision) if isinstance(revision, int) else revision
+        raise NotImplementedError()
 
 
 class VCSHelper:
