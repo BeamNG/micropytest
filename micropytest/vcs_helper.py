@@ -15,16 +15,16 @@ class VCSInfo:
     name: str
     email: Optional[str]
     timestamp: int
-    date: datetime
+
+    @property
+    def date(self) -> str:
+        return datetime.fromtimestamp(self.timestamp).strftime('%Y-%m-%d %H:%M:%S')
 
 
 @dataclass
 class VCSHistoryEntry:
     revision: str
-    author: str
-    email: Optional[str]
-    timestamp: int
-    date: datetime
+    author: VCSInfo
     message: str
 
 
@@ -97,7 +97,6 @@ class GitVCS(VCSInterface):
                     name=author,
                     email=email,
                     timestamp=int(timestamp),
-                    date=datetime.fromtimestamp(int(timestamp)).strftime('%Y-%m-%d %H:%M:%S'),
                 )
         except (subprocess.SubprocessError, ValueError, IndexError):
             pass
@@ -117,7 +116,6 @@ class GitVCS(VCSInterface):
                     name=author,
                     email=email,
                     timestamp=int(timestamp),
-                    date=datetime.fromtimestamp(int(timestamp)).strftime('%Y-%m-%d %H:%M:%S'),
                 )
         except (subprocess.SubprocessError, ValueError):
             pass
@@ -143,13 +141,14 @@ class GitVCS(VCSInterface):
                     email = line[12:].strip().strip('<>')
                 elif line.startswith('author-time '):
                     timestamp = int(line[11:].strip())
+            if author is None or email is None or timestamp is None:
+                raise VCSError("Could not determine line author")
 
             if author:
                 return VCSInfo(
                     name=author,
                     email=email,
                     timestamp=timestamp,
-                    date=datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S') if timestamp else "unknown"
                 )
         except subprocess.SubprocessError:
             pass
@@ -191,14 +190,11 @@ class GitVCS(VCSInterface):
                 if line:
                     parts = line.split('|', 4)
                     if len(parts) == 5:
-                        hash_val, author, email, timestamp, subject = parts
+                        hash_val, author, email, timestamp, message = parts
                         history.append(VCSHistoryEntry(
                             revision=hash_val,
-                            author=author,
-                            email=email,
-                            timestamp=int(timestamp),
-                            date=datetime.fromtimestamp(int(timestamp)).strftime('%Y-%m-%d %H:%M:%S'),
-                            message=subject,
+                            author=VCSInfo(name=author, email=email, timestamp=int(timestamp)),
+                            message=message,
                         ))
         except subprocess.SubprocessError:
             raise VCSError("Could not retrieve file history")
@@ -243,7 +239,6 @@ class SVNVCS(VCSInterface):
                     name=author,
                     email=None,  # SVN doesn't store emails by default
                     timestamp=timestamp,
-                    date=datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S'),
                 )
         except (subprocess.SubprocessError, ET.ParseError):
             pass
@@ -277,7 +272,6 @@ class SVNVCS(VCSInterface):
                     name=author,
                     email=None,  # SVN doesn't store emails by default
                     timestamp=timestamp,
-                    date=datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S'),
                 )
         except subprocess.SubprocessError:
             pass
@@ -322,7 +316,6 @@ class SVNVCS(VCSInterface):
                     name=author,
                     email=None,  # SVN doesn't store emails by default
                     timestamp=timestamp,
-                    date=datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S'),
                 )
         except subprocess.SubprocessError:
             pass
@@ -398,10 +391,7 @@ class SVNVCS(VCSInterface):
 
                         history.append(VCSHistoryEntry(
                             revision=revision,
-                            author=author,
-                            email=None,
-                            timestamp=timestamp,
-                            date=datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S'),
+                            author=VCSInfo(name=author, email=None, timestamp=timestamp),
                             message=message,
                         ))
         except subprocess.SubprocessError:

@@ -81,17 +81,16 @@ def test_vcs_helper(ctx):
 
                 # Get commit message
                 commit_msg = vcs.get_line_commit_message(current_file, function_line)
-                if commit_msg and not isinstance(commit_msg, tuple):
-                    ctx.info(f"  Commit message: {commit_msg}")
-                    # Store function author info as an artifact
-                    ctx.add_artifact("function_author", {
-                        "author": asdict(line_author),
-                        "commit_message": commit_msg
-                    })
+                ctx.info(f"  Commit message: {commit_msg}")
+                # Store function author info as an artifact
+                ctx.add_artifact("function_author", {
+                    "author": asdict(line_author),
+                    "commit_message": commit_msg
+                })
             except VCSError as e:
                 ctx.error(f"  {e}")
         else:
-            ctx.warn("  Could not locate function line number")
+            ctx.error("  Could not locate function line number")
     except Exception as e:
         ctx.error(f"  Error analyzing function: {str(e)}")
 
@@ -101,7 +100,7 @@ def test_vcs_helper(ctx):
         history = vcs.get_file_history(current_file, 5)
         for i, entry in enumerate(history, 1):
             entry_info = f"  {i}. "
-            entry_info += f"{entry.revision} - {entry.author} ({entry.date})"
+            entry_info += f"{entry.revision} - {entry.author.name} ({entry.author.date})"
             ctx.info(entry_info)
             ctx.info(f"     {entry.message}")
         # Store history as an artifact
