@@ -83,6 +83,7 @@ class TestContext:
     def get_artifacts(self):
         return self.artifacts
 
+
 class GlobalContextLogHandler(logging.Handler):
     """
     A handler that captures all logs into a single test's context log_records,
