@@ -6,10 +6,23 @@ from dataclasses import asdict
 
 
 @tag('vcs', 'git', 'integration')
-def test_vcs_helper(ctx):
+def test_vcs_helper_git(ctx):
     """Run a test that dumps VCS information about this file."""
-    # Get the path of the current file
-    current_file = os.path.abspath(__file__)
+    vcs_helper_function(ctx, __file__)
+
+
+@tag('vcs', 'svn', 'integration')
+def test_vcs_helper_svn(ctx):
+    """Run a test that dumps VCS information about a dummy SVN file."""
+    if True:
+        ctx.skip_test("Skipping test_vcs_helper_svn.")
+    svn_file = "svn_repo/hello.txt"
+    vcs_helper_function(ctx, svn_file)
+
+
+def vcs_helper_function(ctx, file_path):
+    # Get the path of the provided file
+    current_file = os.path.abspath(file_path)
 
     # You could use custom VCS by passing the handlers argument to the constructor to supply a list of
     # VCSInterface implementations
@@ -65,7 +78,7 @@ def test_vcs_helper(ctx):
 
         function_line = 0
         for i, line in enumerate(lines, 1):
-            if "def test_vcs_helper" in line:
+            if "def test_vcs_helper_git" in line:
                 function_line = i
                 break
 
