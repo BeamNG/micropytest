@@ -1,6 +1,6 @@
 # test_vcs.py
 import os
-from shutil import rmtree
+from shutil import rmtree, copyfile
 import subprocess
 import stat
 from pathlib import Path
@@ -200,14 +200,24 @@ class DummySVNRepo:
             # Checkout trunk to working copy
             subprocess.check_call(['svn', 'checkout', f'{self.url}/trunk', self.working_copy_path])
 
-            # Make 2 more changes to the file and commit them
+            # Make some changes and commit them
             sleep(2)
             with open(os.path.join(self.working_copy_path, 'hello.txt'), 'a') as f:
                 f.write('Hello again!\n')
+            for d in ['subdir', 'subdir2']:
+                os.makedirs(os.path.join(self.working_copy_path, d))
+                subprocess.check_call(['svn', 'add', os.path.join(self.working_copy_path, d)])
             subprocess.check_call(['svn', 'commit', self.working_copy_path, '-m', 'Second commit'])
             sleep(2)
             with open(os.path.join(self.working_copy_path, 'hello.txt'), 'a') as f:
                 f.write('Hello a third time!\n\ndef test_vcs_helper:\n    pass\n')
+            for f in ['hello.txt']:
+                copyfile(os.path.join(self.working_copy_path, f), os.path.join(self.working_copy_path, 'subdir', f))
+                subprocess.check_call(['svn', 'add', os.path.join(self.working_copy_path, 'subdir', f)])
+            for d in ['subdir2']:
+                os.rmdir(os.path.join(self.working_copy_path, d))
+                subprocess.check_call(['svn', 'delete', os.path.join(self.working_copy_path, d)])
+            subprocess.check_call(['svn', 'add', os.path.join(self.working_copy_path, '*'), '--force'])
             subprocess.check_call(['svn', 'commit', self.working_copy_path, '-m', 'Third commit'])
 
         except Exception as e:
