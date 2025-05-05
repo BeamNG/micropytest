@@ -32,27 +32,59 @@ class VCSHistoryEntry:
 
 @dataclass
 class Change:
-    path: str
+    path: str  # relative path with / as separator
     type: str  # file, dir
     operation: str  # add, delete, modify
 
 
 @dataclass
 class ChangeSet:
-    """Represents a set of changed files."""
+    """Represents a set of changed files or directories."""
     items: list[Change]
+    root: str  # absolute path
 
     def has_changes(self, relative_path: PathLike) -> bool:
-        """Check if the given relative path (file or directory) has changes."""
-        raise NotImplementedError()
+        """Check if the given relative path (file or directory) has changes.
 
-    def list_changed_directories(self, relative_path: PathLike) -> list[str]:
-        """Get the list of changed (including deleted) directories directly under the given path."""
-        raise NotImplementedError()
+        A directory has changed if any items in it (recursively) have changed (add, delete, modify).
+        A file has changed if occurs in the list of items.
+        A file or directory has also changed if any of its parents have been added or deleted.
+        """
+        relative_path = self._normalize_path(relative_path)
+        for item in self.items:
+            if item.path == relative_path or item.path.startswith(relative_path + '/'):
+                # item itself or descendant has changed
+                return True
 
-    def list_changed_files(self, relative_path: PathLike) -> list[str]:
-        """Get the list of changed (including deleted) files directly under the given path."""
-        raise NotImplementedError()
+        # check if any parent has been added or deleted
+        parent = os.path.dirname(relative_path)
+        while parent != '':
+            for item in self.items:
+                if item.path == parent and item.type == 'dir' and item.operation in ['add', 'delete']:
+                    return True
+            parent = os.path.dirname(parent)
+        return False
+
+    def list_changes(self, location: PathLike, type: Optional[str] = None) -> list[str]:
+        """Get the list of changed items (files or directories) directly under the given location.
+
+        If type == "dir" only list directories, if type == "file" only list files.
+        """
+        location = os.path.abspath(str(location))
+        changed = []
+        for item in os.scandir(location):
+            if (type is None) or (type == "dir" and item.is_dir()) or (type == "file" and item.is_file()):
+                relative_path = os.path.relpath(item.path, self.root)
+                if self.has_changes(relative_path):
+                    changed.append(item.name)
+        return changed
+
+    def _normalize_path(self, path: PathLike) -> str:
+        path = os.path.normpath(str(path))
+        path = path.replace('\\', '/')
+        if path.endswith('/'):
+            path = path[:-1]
+        return path
 
 
 class VCSInterface(ABC):
@@ -545,7 +577,7 @@ class SVNVCS(VCSInterface):
                     t = "file" if isfile else "dir"
                     changed.append(Change(path=rel_path, operation=operation, type=t))
 
-        return ChangeSet(items=changed)
+        return ChangeSet(items=changed, root=os.path.abspath(str(repo_path)))
 
 
 class VCSHelper:
