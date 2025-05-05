@@ -403,8 +403,16 @@ class SVNVCS(VCSInterface):
         history: list[VCSHistoryEntry] = []
 
         try:
+            # get repo file url
+            url_result = subprocess.run(
+                ['svn', 'info', '--show-item', 'url', file_path],
+                capture_output=True, text=True, check=True
+            )
+            url = url_result.stdout.strip()
+
+            # running this with url instead of working copy path also works correctly for directories
             result = subprocess.run(
-                ['svn', 'log', '--limit', str(limit), file_path],
+                ['svn', 'log', '--limit', str(limit), url],
                 capture_output=True, text=True, check=True
             )
 
