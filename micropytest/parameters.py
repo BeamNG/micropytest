@@ -14,4 +14,10 @@ class Args:
     def __repr__(self):
         return f"Args{str(self)}"
 
+    def canonical_str(self):
+        """Canonical string sorts kwargs by key."""
+        args = [repr(arg) for arg in self.args]
+        kwargs = [f"{k}={repr(v)}" for k, v in sorted(self.kwargs.items(), key=lambda x: x[0])]
+        return f"{', '.join(args + kwargs)}"
+
 __all__ = ["parameterize", "Args"]
