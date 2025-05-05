@@ -5,7 +5,7 @@ import json
 import traceback
 import inspect
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 import importlib.util
 from .parameters import Args
@@ -262,14 +262,15 @@ async def run_test_async(fn, ctx, args):
         args = Args()
     if inspect.iscoroutinefunction(fn):
         if len(inspect.signature(fn).parameters) == 0:
-            await fn(*args.args, **args.kwargs)
+            r = await fn(*args.args, **args.kwargs)
         else:
-            await fn(ctx, *args.args, **args.kwargs)
+            r = await fn(ctx, *args.args, **args.kwargs)
     else:
         if len(inspect.signature(fn).parameters) == 0:
-            fn(*args.args, **args.kwargs)
+            r = fn(*args.args, **args.kwargs)
         else:
-            fn(ctx, *args.args, **args.kwargs)
+            r = fn(ctx, *args.args, **args.kwargs)
+    return r
 
 
 async def run_tests(
@@ -379,13 +380,16 @@ async def run_test_collect_result(test: Test, ctx, logger, dry_run) -> TestResul
     """Try to run a single test and return its result."""
 
     key = test.key
+    start_time = datetime.now(timezone.utc)
+    exception = None
+    return_value = None
     t0 = time.perf_counter()
 
     try:
         if test.skip:
             raise SkipTest("Skipped because no arguments were generated.")
         if not dry_run:
-            await run_test_async(test.function, ctx, test.args)
+            return_value = await run_test_async(test.function, ctx, test.args)
 
         duration = time.perf_counter() - t0
         status = "pass"
@@ -399,9 +403,10 @@ async def run_test_collect_result(test: Test, ctx, logger, dry_run) -> TestResul
         status = "skip"
         logger.info(f"SKIPPED: {key} ({duration:.3f}s) - {e}")
 
-    except Exception:
+    except Exception as e:
         duration = time.perf_counter() - t0
         status = "fail"
+        exception = e
         logger.error(f"FINISHED FAIL: {key} ({duration:.3f}s)\n{traceback.format_exc()}")
 
     return TestResult(
@@ -409,6 +414,9 @@ async def run_test_collect_result(test: Test, ctx, logger, dry_run) -> TestResul
         status=status,
         logs=ctx.log_records,
         artifacts=ctx.artifacts,
+        exception=exception,
+        return_value=return_value,
+        start_time=start_time,
         duration_s=duration,
     )
 

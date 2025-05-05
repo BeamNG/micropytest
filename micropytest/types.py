@@ -3,6 +3,7 @@ import os
 from dataclasses import dataclass
 from typing import Optional, Any
 from .parameters import Args
+from datetime import datetime
 
 
 @dataclass
@@ -47,4 +48,7 @@ class TestResult:
     status: str
     logs: list[tuple[str, Any]]
     artifacts: dict[str, Any]
+    exception: Optional[Exception]
+    return_value: Any
+    start_time: datetime
     duration_s: float
