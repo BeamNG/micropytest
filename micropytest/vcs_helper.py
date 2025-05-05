@@ -29,19 +29,26 @@ class VCSHistoryEntry:
 
 
 @dataclass
+class Change:
+    path: str
+    operation: str  # add, delete, modify
+
+
+@dataclass
 class ChangeSet:
-    files: list[str]
+    """Represents a set of changed files."""
+    files: list[Change]
 
     def has_changes(self, relative_path: PathLike) -> bool:
         """Check if the given relative path (file or directory) has changes."""
         raise NotImplementedError()
 
-    def get_changed_directories(self, relative_path: PathLike) -> list[str]:
-        """Get the list of changed directories directly under the given path."""
+    def list_changed_directories(self, relative_path: PathLike) -> list[str]:
+        """Get the list of changed (including deleted) directories directly under the given path."""
         raise NotImplementedError()
 
-    def get_changed_files(self, relative_path: PathLike) -> list[str]:
-        """Get the list of changed files directly under the given path."""
+    def list_changed_files(self, relative_path: PathLike) -> list[str]:
+        """Get the list of changed (including deleted) files directly under the given path."""
         raise NotImplementedError()
 
 
@@ -228,7 +235,7 @@ class GitVCS(VCSInterface):
 
     def get_last_commit(self, repo_path: PathLike) -> VCSHistoryEntry:
         """Get information about the last commit."""
-        raise NotImplementedError()
+        return self.get_file_history(repo_path, limit=1)[0]
 
     def get_changed_files(self, repo_path: PathLike, revision: str) -> ChangeSet:
         """Get changed files (relative to repo path) of a given commit, with respect to the previous commit."""
@@ -434,7 +441,7 @@ class SVNVCS(VCSInterface):
 
     def get_last_commit(self, repo_path: PathLike) -> VCSHistoryEntry:
         """Get information about the last commit."""
-        raise NotImplementedError()
+        return self.get_file_history(repo_path, limit=1)[0]
 
     def get_changed_files(self, repo_path: PathLike, revision: str) -> ChangeSet:
         """Get changed files (relative to repo path) of a given commit, with respect to the previous commit."""
