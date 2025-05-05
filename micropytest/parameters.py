@@ -10,7 +10,7 @@ class Args:
         args = [repr(arg) for arg in self.args]
         kwargs = [f"{k}={repr(v)}" for k, v in self.kwargs.items()]
         return f"({', '.join(args + kwargs)})"
-    
+
     def __repr__(self):
         return f"Args{str(self)}"
 
