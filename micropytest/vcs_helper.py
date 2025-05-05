@@ -6,9 +6,11 @@ from datetime import datetime
 import xml.etree.ElementTree as ET
 from abc import ABC, abstractmethod
 from typing import Optional
+import os
 from os import PathLike
 from dataclasses import dataclass
-
+from pathlib import Path
+import re
 
 @dataclass
 class VCSInfo:
@@ -31,13 +33,14 @@ class VCSHistoryEntry:
 @dataclass
 class Change:
     path: str
+    type: str  # file, dir
     operation: str  # add, delete, modify
 
 
 @dataclass
 class ChangeSet:
     """Represents a set of changed files."""
-    files: list[Change]
+    items: list[Change]
 
     def has_changes(self, relative_path: PathLike) -> bool:
         """Check if the given relative path (file or directory) has changes."""
@@ -92,8 +95,8 @@ class VCSInterface(ABC):
         pass
 
     @abstractmethod
-    def get_changed_files(self, repo_path: PathLike, revision: str) -> ChangeSet:
-        """Get changed files (relative to repo path) of a given commit, with respect to the previous commit."""
+    def get_changes(self, repo_path: PathLike, revision: str) -> ChangeSet:
+        """Get changes (relative to repo path) of a given commit, with respect to the previous commit."""
         pass
 
 
@@ -237,9 +240,11 @@ class GitVCS(VCSInterface):
         """Get information about the last commit."""
         return self.get_file_history(repo_path, limit=1)[0]
 
-    def get_changed_files(self, repo_path: PathLike, revision: str) -> ChangeSet:
-        """Get changed files (relative to repo path) of a given commit, with respect to the previous commit."""
+    def get_changes(self, repo_path: PathLike, revision: str) -> ChangeSet:
+        """Get changes (relative to repo path) of a given commit, with respect to the previous commit."""
         # Previous commit in Git = first parent commit (i.e. the previous state of the branch that was merged into)
+        # In Git all changes are files
+        # Rename is shown as delete and add
         raise NotImplementedError()
 
 
@@ -398,17 +403,20 @@ class SVNVCS(VCSInterface):
 
         raise VCSError("Could not determine commit message")
 
+    def _get_repo_url(self, file_path):
+        # get repo file url
+        url_result = subprocess.run(
+            ['svn', 'info', '--show-item', 'url', file_path],
+            capture_output=True, text=True, check=True
+        )
+        return url_result.stdout.strip()
+
     def get_file_history(self, file_path, limit=5):
         """Get file history (last N changes) in SVN."""
         history: list[VCSHistoryEntry] = []
 
         try:
-            # get repo file url
-            url_result = subprocess.run(
-                ['svn', 'info', '--show-item', 'url', file_path],
-                capture_output=True, text=True, check=True
-            )
-            url = url_result.stdout.strip()
+            url = self._get_repo_url(file_path)
 
             # running this with url instead of working copy path also works correctly for directories
             result = subprocess.run(
@@ -451,10 +459,93 @@ class SVNVCS(VCSInterface):
         """Get information about the last commit."""
         return self.get_file_history(repo_path, limit=1)[0]
 
-    def get_changed_files(self, repo_path: PathLike, revision: str) -> ChangeSet:
-        """Get changed files (relative to repo path) of a given commit, with respect to the previous commit."""
-        revision = str(revision) if isinstance(revision, int) else revision
-        raise NotImplementedError()
+    def get_changes(self, repo_path: PathLike, revision: str) -> ChangeSet:
+        """Get changes (relative to repo path) of a given commit, with respect to the previous commit."""
+        revision = str(revision)
+        repo_path = Path(repo_path)
+        url = self._get_repo_url(repo_path)
+        if not url.endswith('/'):
+            url += '/'
+
+        try:
+            result = subprocess.run(
+                ["svn", "log", "-v", "-r", revision],
+                cwd=repo_path,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=True
+            )
+        except subprocess.CalledProcessError as e:
+            raise VCSError(f"SVN command failed: {e.stderr.strip()}") from e
+
+        changed = []
+        in_changed_paths = False
+
+        for line in result.stdout.splitlines():
+            line = line.strip()
+            if line.startswith("Changed paths:"):
+                in_changed_paths = True
+                continue
+            if in_changed_paths:
+                if not line or not re.match(r'^[MAD] ', line):
+                    break  # End of changed paths section
+
+                match = re.match(r"([MAD])\s+(\/\S+)", line)
+                if not match:
+                    raise VCSError(f"Could not parse svn log output: {line}")
+
+                action, path = match.groups()
+
+                # Normalize the path (remove '/trunk/' prefix)
+                trunk_prefix = "/trunk/"
+                if not path.startswith(trunk_prefix):
+                    if path == trunk_prefix[:-1]:
+                        continue
+                    raise VCSError(f"Only trunk changes are supported, got: {path}")
+                rel_path = path[len(trunk_prefix):]
+                full_path = url + rel_path
+
+                # Determine operation
+                operation = {"A": "add", "M": "modify", "D": "delete"}[action]
+
+                if action == "M":
+                    # Modified items are always files
+                    changed.append(Change(path=rel_path, operation=operation, type="file"))
+
+                elif action == "A":
+                    # Use svn info to check whether it's a file
+                    info_result = subprocess.run(
+                        ["svn", "info", f"{full_path}@{revision}"],
+                        cwd=repo_path,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                        check=True
+                    )
+                    t = "file" if "Node Kind: file" in info_result.stdout else "dir"
+                    changed.append(Change(path=rel_path, operation=operation, type=t))
+
+                elif action == "D":
+                    # Check previous revision to determine what was deleted
+                    prev_revision = str(int(revision) - 1)
+                    parent, name = os.path.split(full_path)
+                    assert '\\' not in parent + name
+
+                    ls_result = subprocess.run(
+                        ["svn", "ls", f"{parent}@{prev_revision}"],
+                        cwd=repo_path,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                        check=True
+                    )
+                    items = ls_result.stdout.strip().splitlines()
+                    isfile = any(entry.strip("/") == name and not entry.endswith("/") for entry in items)
+                    t = "file" if isfile else "dir"
+                    changed.append(Change(path=rel_path, operation=operation, type=t))
+
+        return ChangeSet(items=changed)
 
 
 class VCSHelper:
