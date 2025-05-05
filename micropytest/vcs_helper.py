@@ -277,7 +277,49 @@ class GitVCS(VCSInterface):
         # Previous commit in Git = first parent commit (i.e. the previous state of the branch that was merged into)
         # In Git all changes are files
         # Rename is shown as delete and add
-        raise NotImplementedError()
+        repo_path = Path(repo_path).resolve()
+
+        try:
+            result = subprocess.run(
+                ["git", "diff", "--name-status", revision + "^", revision],
+                cwd=repo_path,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=True,
+                text=True
+            )
+        except subprocess.CalledProcessError as e:
+            raise VCSError(f"Git command failed: {e.stderr.strip()}") from e
+
+        changes: list[Change] = []
+
+        for line in result.stdout.strip().splitlines():
+            if not line:
+                continue
+
+            parts = line.split("\t")
+            status = parts[0]
+
+            if status == "A":
+                path = parts[1]
+                operation = "add"
+                changes.append(Change(path=path, type="file", operation=operation))
+            elif status == "D":
+                path = parts[1]
+                operation = "delete"
+                changes.append(Change(path=path, type="file", operation=operation))
+            elif status == "M":
+                path = parts[1]
+                operation = "modify"
+                changes.append(Change(path=path, type="file", operation=operation))
+            elif status.startswith("R"):  # Rename
+                old_path, new_path = parts[1], parts[2]
+                changes.append(Change(path=old_path, type="file", operation="delete"))
+                changes.append(Change(path=new_path, type="file", operation="add"))
+            else:
+                raise VCSError(f"Git: unexpected output line: {line}")
+
+        return ChangeSet(items=changes, root=str(repo_path))
 
 
 class SVNVCS(VCSInterface):
