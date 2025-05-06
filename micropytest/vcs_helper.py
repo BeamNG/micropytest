@@ -131,6 +131,16 @@ class VCSInterface(ABC):
         """Get changes (relative to repo path) of a given commit, with respect to the previous commit."""
         pass
 
+    @abstractmethod
+    def get_repo_root(self, path: PathLike) -> str:
+        """Get the root directory of the repository, given any path inside the repository."""
+        pass
+
+    @abstractmethod
+    def get_branch(self, repo_path: PathLike) -> str:
+        """Get current branch name, given repo root directory."""
+        pass
+
 
 class VCSError(Exception):
     """Exception raised for VCS errors."""
@@ -320,6 +330,19 @@ class GitVCS(VCSInterface):
                 raise VCSError(f"Git: unexpected output line: {line}")
 
         return ChangeSet(items=changes, root=str(repo_path))
+
+    def get_repo_root(self, path: PathLike) -> str:
+        """Get the root directory of the repository, given any path inside the repository."""
+        path = os.path.abspath(str(path))
+        if not os.path.exists(path):
+            raise VCSError(f"Path does not exist: {path}")
+        if not os.path.isdir(path):
+            path = os.path.dirname(path)
+        return subprocess.check_output(["git", "rev-parse", "--show-toplevel"], cwd=path).decode("utf-8").strip()
+
+    def get_branch(self, repo_path: PathLike) -> str:
+        """Get current branch name, given repo root directory."""
+        return subprocess.check_output(["git", "branch", "--show-current"], cwd=repo_path).decode("utf-8").strip()
 
 
 class SVNVCS(VCSInterface):
@@ -620,6 +643,21 @@ class SVNVCS(VCSInterface):
                     changed.append(Change(path=rel_path, operation=operation, type=t))
 
         return ChangeSet(items=changed, root=os.path.abspath(str(repo_path)))
+
+    def get_repo_root(self, path: PathLike) -> str:
+        """Get the root directory of the repository, given any path inside the repository."""
+        # get root of the working copy
+        path = os.path.abspath(str(path))
+        if not os.path.exists(path):
+            raise VCSError(f"Path does not exist: {path}")
+        if not os.path.isdir(path):
+            path = os.path.dirname(path)
+        return subprocess.check_output(["svn", "info", "--show-item", "wc-root", path], cwd=path).decode("utf-8").strip()
+
+    def get_branch(self, repo_path: PathLike) -> str:
+        """Get current branch name, given repo root directory."""
+        url = self._get_repo_url(repo_path)
+        return url.split('/')[-1]
 
 
 class VCSHelper:

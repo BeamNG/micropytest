@@ -49,6 +49,20 @@ def vcs_helper_function(ctx, file_path):
     vcs = vcs_helper.get_vcs_handler(os.path.dirname(current_file))
     assert vcs is not None, "VCS should be detected"
 
+    # Get basic repo info
+    repo_root = vcs.get_repo_root(file_path)
+    ctx.info(f"Repository Root: {repo_root}")
+    branch = vcs.get_branch(repo_root)
+    ctx.info(f"Branch: {branch}")
+    if vcs_type == "git":
+        assert os.path.abspath(repo_root) == os.path.abspath(os.path.dirname(os.path.dirname(file_path))), "Repo path mismatch"
+        ci_branch = os.environ.get("GITHUB_REF_NAME")
+        if ci_branch:
+            assert branch == ci_branch, "Branch mismatch"
+    elif vcs_type == "svn":
+        assert os.path.abspath(repo_root) == os.path.abspath(os.path.dirname(file_path)), "Repo path mismatch"
+        assert branch == "trunk", "Branch mismatch"
+
     # Get file creator info
     ctx.info("File Creator Information:")
     try:
