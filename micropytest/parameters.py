@@ -15,6 +15,9 @@ class Args:
     def __repr__(self):
         return f"Args{str(self)}"
 
+    def is_empty(self):
+        return len(self.args) == 0 and len(self.kwargs) == 0
+
     def to_json(self) -> str:
         """Canonical JSON serialization."""
         d = {'args': list(self.args), 'kwargs': self.kwargs}

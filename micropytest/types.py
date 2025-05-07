@@ -22,7 +22,7 @@ class Test:
     name: str
     function: callable
     tags: set[str]
-    args: Optional[Args]
+    args: Args
     skip: bool  # skip because no arguments were generated
 
     @property
@@ -36,7 +36,7 @@ class Test:
 
     @property
     def short_key_with_args(self):
-        if self.args is None:
+        if self.args.is_empty():
             return self.short_key
         return f"{self.short_key}{self.args}"
 

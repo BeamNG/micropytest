@@ -206,7 +206,7 @@ def find_test_functions(discover_ctx, test_files, test_filter=None, tag_filter=N
                                 discover_ctx.test = TestAttributes(file=f, name=attr, function=fn, tags=tags)
                                 args_list = fn._argument_generator(discover_ctx)
                             if len(args_list) == 0:
-                                tests.append(Test(file=f, name=attr, function=fn, tags=tags, args=None, skip=True))
+                                tests.append(Test(file=f, name=attr, function=fn, tags=tags, args=Args(), skip=True))
                             else:
                                 for args in args_list:
                                     if not isinstance(args, Args):
@@ -214,7 +214,7 @@ def find_test_functions(discover_ctx, test_files, test_filter=None, tag_filter=N
                                         raise ValueError(f"Argument generator of '{f}' returned a non-Args object")
                                     tests.append(Test(file=f, name=attr, function=fn, tags=tags, args=args, skip=False))
                         else:
-                            tests.append(Test(file=f, name=attr, function=fn, tags=tags, args=None, skip=False))
+                            tests.append(Test(file=f, name=attr, function=fn, tags=tags, args=Args(), skip=False))
     return tests
 
 
@@ -257,9 +257,7 @@ def store_lastrun(tests_root, test_durations):
         pass
 
 
-async def run_test_async(fn, ctx, args):
-    if args is None:
-        args = Args()
+async def run_test_async(fn, ctx, args: Args):
     if inspect.iscoroutinefunction(fn):
         if len(inspect.signature(fn).parameters) == 0:
             r = await fn(*args.args, **args.kwargs)
