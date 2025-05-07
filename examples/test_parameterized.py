@@ -6,7 +6,7 @@ def generate_arguments(ctx):
     # This is a simple generation, you could also write custom logic depending on the context or the environment.
     # For example, you could get the set of changed files of the last commit from the VCS and run a test
     # only on the changed set of files.
-    # If you return an empty list, this is equivalent to skipping the test.
+    # If you return an empty list, this is equivalent to the test being ignored (i.e. not discovered).
     # A single ctx object is passed to all generator functions during the discovery phase.
     # You can access ctx.test to get a TestAttributes object (including test name, function, tags, etc.)
     ctx.info(f"generate_arguments: test tags are: {ctx.test.tags}")

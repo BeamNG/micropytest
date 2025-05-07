@@ -206,15 +206,15 @@ def find_test_functions(discover_ctx, test_files, test_filter=None, tag_filter=N
                                 discover_ctx.test = TestAttributes(file=f, name=attr, function=fn, tags=tags)
                                 args_list = fn._argument_generator(discover_ctx)
                             if len(args_list) == 0:
-                                tests.append(Test(file=f, name=attr, function=fn, tags=tags, args=Args(), skip=True))
+                                pass  # ignore this test because no arguments were generated
                             else:
                                 for args in args_list:
                                     if not isinstance(args, Args):
                                         f = fn.__name__
                                         raise ValueError(f"Argument generator of '{f}' returned a non-Args object")
-                                    tests.append(Test(file=f, name=attr, function=fn, tags=tags, args=args, skip=False))
+                                    tests.append(Test(file=f, name=attr, function=fn, tags=tags, args=args))
                         else:
-                            tests.append(Test(file=f, name=attr, function=fn, tags=tags, args=Args(), skip=False))
+                            tests.append(Test(file=f, name=attr, function=fn, tags=tags, args=Args()))
     return tests
 
 
@@ -384,8 +384,6 @@ async def run_test_collect_result(test: Test, ctx, logger, dry_run) -> TestResul
     t0 = time.perf_counter()
 
     try:
-        if test.skip:
-            raise SkipTest("Skipped because no arguments were generated.")
         if not dry_run:
             return_value = await run_test_async(test.function, ctx, test.args)
 

@@ -23,7 +23,6 @@ class Test:
     function: callable
     tags: set[str]
     args: Args
-    skip: bool  # skip because no arguments were generated
 
     @property
     def key(self):
