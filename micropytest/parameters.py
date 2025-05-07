@@ -1,3 +1,4 @@
+import json
 from .decorators import parameterize
 
 class Args:
@@ -14,10 +15,18 @@ class Args:
     def __repr__(self):
         return f"Args{str(self)}"
 
-    def canonical_str(self):
-        """Canonical string sorts kwargs by key."""
-        args = [repr(arg) for arg in self.args]
-        kwargs = [f"{k}={repr(v)}" for k, v in sorted(self.kwargs.items(), key=lambda x: x[0])]
-        return f"{', '.join(args + kwargs)}"
+    def to_json(self) -> str:
+        """Canonical JSON serialization."""
+        d = {'args': list(self.args), 'kwargs': self.kwargs}
+        # sort keys and use most compact representation
+        # note that tuples in data will be converted to lists (irreversibly)
+        return json.dumps(d, sort_keys=True, separators=(',', ':'), ensure_ascii=False)
+
+    @staticmethod
+    def from_json(s: str) -> "Args":
+        """Create an Args object from canonical JSON serialization."""
+        d = json.loads(s)
+        return Args(*d['args'], **d['kwargs'])
+
 
 __all__ = ["parameterize", "Args"]
