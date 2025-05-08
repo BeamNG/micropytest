@@ -397,6 +397,7 @@ async def run_test_collect_result(test: Test, ctx, logger, dry_run) -> TestResul
     except SkipTest as e:
         duration = time.perf_counter() - t0
         status = "skip"
+        exception = e
         logger.info(f"SKIPPED: {key} ({duration:.3f}s) - {e}")
 
     except Exception as e:
