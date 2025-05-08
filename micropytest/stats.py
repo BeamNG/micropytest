@@ -21,8 +21,8 @@ class TestStats:
             self.failed += 1
         elif status == "skip":
             self.skipped += 1
-        self.warnings += sum(1 for lvl, _ in logs if lvl == "WARNING")
-        self.errors += sum(1 for lvl, _ in logs if (lvl == "ERROR" or lvl == "CRITICAL"))
+        self.warnings += sum(1 for record in logs if record.levelname == "WARNING")
+        self.errors += sum(1 for record in logs if (record.levelname in ["ERROR", "CRITICAL"]))
         self.total_time += result.duration_s
         return self
 

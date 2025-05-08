@@ -7,6 +7,7 @@ import inspect
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, Optional
 import importlib.util
 from .parameters import Args
 from .progress import TestProgress
@@ -48,9 +49,10 @@ class TestContext:
     Allows logging via ctx.debug(), etc., storing artifacts (key-value store), and skipping tests.
     """
     def __init__(self):
-        self.log_records = []
+        self.log_records: list[logging.LogRecord] = []
         self.log = logging.getLogger()
-        self.artifacts = {}
+        self.artifacts: dict[str, Any] = {}
+        self.on_log: Optional[callable] = None
 
     def debug(self, msg):
         self.log.debug(msg)
@@ -67,7 +69,7 @@ class TestContext:
     def fatal(self, msg):
         self.log.critical(msg)
 
-    def add_artifact(self, key, value):
+    def add_artifact(self, key: str, value: Any):
         self.artifacts[key] = value
 
     def skip_test(self, msg=None):
@@ -96,8 +98,9 @@ class GlobalContextLogHandler(logging.Handler):
             self.setFormatter(formatter)
 
     def emit(self, record):
-        msg = self.format(record)
-        self.ctx.log_records.append((record.levelname, msg))
+        self.ctx.log_records.append(record)
+        if self.ctx.on_log:
+            self.ctx.on_log(record)
 
 
 class SimpleLogFormatter(logging.Formatter):

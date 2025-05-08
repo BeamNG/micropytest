@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Optional, Any
 from .parameters import Args
 from datetime import datetime
+from logging import LogRecord
 
 
 @dataclass
@@ -45,7 +46,7 @@ class TestResult:
     """The result of a single test."""
     test: Test
     status: str
-    logs: list[tuple[str, Any]]
+    logs: list[LogRecord]
     artifacts: dict[str, Any]
     exception: Optional[Exception]
     return_value: Any

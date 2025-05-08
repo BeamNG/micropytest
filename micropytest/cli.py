@@ -129,8 +129,8 @@ def console_main():
             console.print(f"{test_key:50s} - {status_display:20}{duration_str}", highlight=False)
 
             if args.verbose:
-                for (lvl, msg) in result.logs:
-                    console.print(f"  {msg}")
+                for record in result.logs:
+                    console.print(f"  {live_format.format(record)}")
                 if result.artifacts:
                     console.print(f"  Artifacts: {result.artifacts}")
                 console.print()
