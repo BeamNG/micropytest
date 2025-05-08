@@ -5,6 +5,7 @@ import json
 import traceback
 import inspect
 import time
+from os import PathLike
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
@@ -71,6 +72,10 @@ class TestContext:
 
     def add_artifact(self, key: str, value: Any):
         self.artifacts[key] = value
+
+    def add_artifact_file(self, key: str, path: PathLike):
+        with open(path, "rb") as f:
+            self.add_artifact(key, f.read())
 
     def skip_test(self, msg=None):
         """
