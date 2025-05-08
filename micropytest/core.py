@@ -115,8 +115,10 @@ class SimpleLogFormatter(logging.Formatter):
             has_colorama = True
         except ImportError:
             has_colorama = False
-                
-        tstamp = datetime.now().strftime("%H:%M:%S")
+
+        time = datetime.fromtimestamp(record.created, tz=timezone.utc)
+        time_local = time.astimezone()
+        tstamp = time_local.strftime("%H:%M:%S")
         level = record.levelname
         origin = record.name
         message = record.getMessage()
