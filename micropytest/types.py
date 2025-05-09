@@ -1,11 +1,12 @@
 """Test-specific data types."""
 import os
 from dataclasses import dataclass
-from typing import Optional, Any
+from typing import Optional, Any, Literal
 from .parameters import Args
 from datetime import datetime
 from logging import LogRecord
 
+TestStatus = Literal["pass", "fail", "skip"]
 
 @dataclass
 class TestAttributes:
@@ -45,7 +46,7 @@ class Test:
 class TestResult:
     """The result of a single test."""
     test: Test
-    status: str
+    status: TestStatus
     logs: list[LogRecord]
     artifacts: dict[str, Any]
     exception: Optional[Exception]
