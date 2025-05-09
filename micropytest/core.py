@@ -321,6 +321,12 @@ async def run_tests(
     return test_results
 
 
+def get_logger():
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)
+    return root_logger
+
+
 async def run_discovered_tests(
     tests_path,
     tests: list[Test],
@@ -333,8 +339,7 @@ async def run_discovered_tests(
     """Run the given set of tests that were discovered in a previous step."""
 
     # Logger
-    root_logger = logging.getLogger()
-    root_logger.setLevel(logging.DEBUG)
+    root_logger = get_logger()
 
     # Load known durations
     test_durations = load_lastrun(tests_path).get("test_durations", {})
