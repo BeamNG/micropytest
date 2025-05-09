@@ -1,0 +1,51 @@
+"""Example using TestStore."""
+from micropytest.store import TestStore
+from micropytest.core import discover_tests, TestContext, run_single_test
+import logging
+from typing import Any, Optional
+import asyncio
+
+
+# TODO:
+# - keepalive that runs in the background (every 5 seconds, server: if not signal after 30s -> no-response-timeout)
+# - keepalive->cancel should abort single test (even during running)
+
+
+
+class TestContextStored(TestContext):
+    def __init__(self, store: TestStore, run_id: Optional[int] = None):
+        super().__init__()
+        self.store: TestStore = store
+        self.run_id: int = run_id
+
+    def add_artifact(self, key: str, value: Any):
+        super().add_artifact(key, value)
+        self.store.add_artifact(self.run_id, key, value)
+
+    def add_log(self, record: logging.LogRecord):
+        super().add_log(record)
+        self.store.add_logs(self.run_id, [record])
+
+
+async def main():
+    store = TestStore(url="http://localhost:8000")
+    discover_ctx = TestContextStored(store)
+    tests_path = "."
+
+    # Discover tests and enqueue them
+    tests = discover_tests(discover_ctx, tests_path)
+    for test in tests:
+        store.enqueue_test(test)
+
+    # Start tests in queue
+    while True:
+        test_run = store.start_test()
+        if test_run is None:
+            break
+        ctx = TestContextStored(store, test_run.id)
+        result = await run_single_test(test_run.test, ctx)
+        store.finish_test(test_run.id, result)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
