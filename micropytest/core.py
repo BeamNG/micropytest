@@ -53,7 +53,6 @@ class TestContext:
         self.log_records: list[logging.LogRecord] = []
         self.log = logging.getLogger()
         self.artifacts: dict[str, Any] = {}
-        self.on_log: Optional[callable] = None
 
     def debug(self, msg):
         self.log.debug(msg)
@@ -72,6 +71,9 @@ class TestContext:
 
     def add_artifact(self, key: str, value: Any):
         self.artifacts[key] = value
+
+    def add_log(self, record: logging.LogRecord):
+        self.log_records.append(record)
 
     def add_artifact_file(self, key: str, path: PathLike):
         with open(path, "rb") as f:
@@ -103,9 +105,7 @@ class GlobalContextLogHandler(logging.Handler):
             self.setFormatter(formatter)
 
     def emit(self, record):
-        self.ctx.log_records.append(record)
-        if self.ctx.on_log:
-            self.ctx.on_log(record)
+        self.ctx.add_log(record)
 
 
 class SimpleLogFormatter(logging.Formatter):
