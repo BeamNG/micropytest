@@ -389,6 +389,16 @@ async def run_discovered_tests(
     return test_results
 
 
+async def run_single_test(test: Test, ctx: TestContext) -> TestResult:
+    """Run a single test and return its result."""
+    root_logger = get_logger()
+    test_handler = GlobalContextLogHandler(ctx, formatter=SimpleLogFormatter(use_colors=False))
+    root_logger.addHandler(test_handler)
+    result = await run_test_collect_result(test, ctx, root_logger, dry_run=False)
+    root_logger.removeHandler(test_handler)
+    return result
+
+
 async def run_test_collect_result(test: Test, ctx, logger, dry_run) -> TestResult:
     """Try to run a single test and return its result."""
 
