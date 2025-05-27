@@ -98,7 +98,11 @@ class Command:
         """Wait for the process to complete and return exit code."""
         if not self.process:
             raise RuntimeError("Process not started")
-        return self.process.wait(timeout=timeout)
+        code = self.process.wait(timeout=timeout)
+        # Wait for the threads to finish reading the streams
+        self._stdout_thread.join()
+        self._stderr_thread.join()
+        return code
     
     def __enter__(self):
         if not self.process:
@@ -106,7 +110,7 @@ class Command:
         return self
     
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.terminate()
+        self.wait()
 
 
 # Simple helper for use with microPyTest
