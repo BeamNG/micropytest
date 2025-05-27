@@ -7,7 +7,7 @@ class Command:
     """
     A simple command executor with stdout/stderr callbacks and output collection.
     """
-    
+
     def __init__(self, cmd: Union[str, List[str]], cwd: Optional[str] = None, env: Optional[Dict[str, str]] = None):
         self.cmd = cmd
         self.cwd = cwd
@@ -19,7 +19,7 @@ class Command:
         self._stderr_thread = None
         self.stdout_lines = []
         self.stderr_lines = []
-        
+
     def _read_stream(self, stream, callback, output_list):
         """Read from stream, store lines, and call callback for each line."""
         for line in iter(stream.readline, b''):
@@ -28,12 +28,12 @@ class Command:
             if callback:
                 callback(line_str)
         stream.close()
-    
+
     def run(self, stdout_callback: Optional[Callable[[str], None]] = None, 
             stderr_callback: Optional[Callable[[str], None]] = None):
         """
         Start the command with the given callbacks.
-        
+
         Args:
             stdout_callback: Function called for each line of stdout
             stderr_callback: Function called for each line of stderr
@@ -42,7 +42,7 @@ class Command:
         self.stderr_callback = stderr_callback
         self.stdout_lines = []
         self.stderr_lines = []
-        
+
         self.process = subprocess.Popen(
             self.cmd,
             cwd=self.cwd,
@@ -53,14 +53,14 @@ class Command:
             bufsize=0,
             universal_newlines=False
         )
-        
+
         self._stdout_thread = threading.Thread(
             target=self._read_stream,
             args=(self.process.stdout, self.stdout_callback, self.stdout_lines)
         )
         self._stdout_thread.daemon = True
         self._stdout_thread.start()
-        
+
         self._stderr_thread = threading.Thread(
             target=self._read_stream,
             args=(self.process.stderr, self.stderr_callback, self.stderr_lines)
@@ -69,22 +69,22 @@ class Command:
         self._stderr_thread.start()
         
         return self
-    
+
     def write(self, data: str):
         """Write to the process's stdin."""
         if not self.process:
             raise RuntimeError("Process not started")
         self.process.stdin.write(data.encode('utf-8'))
         self.process.stdin.flush()
-    
+
     def get_stdout(self):
         """Get all stdout lines collected so far."""
         return self.stdout_lines.copy()
-    
+
     def get_stderr(self):
         """Get all stderr lines collected so far."""
         return self.stderr_lines.copy()
-    
+
     def terminate(self):
         """Terminate the process."""
         if self.process and self.process.poll() is None:
@@ -93,7 +93,7 @@ class Command:
                 self.process.wait(timeout=2)
             except subprocess.TimeoutExpired:
                 self.process.kill()
-    
+
     def wait(self, timeout=None):
         """Wait for the process to complete and return exit code."""
         if not self.process:
@@ -103,12 +103,12 @@ class Command:
         self._stdout_thread.join()
         self._stderr_thread.join()
         return code
-    
+
     def __enter__(self):
         if not self.process:
             self.run()
         return self
-    
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.wait()
 
