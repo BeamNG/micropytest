@@ -1,6 +1,7 @@
 import subprocess
 import threading
 import os
+import time
 from typing import List, Dict, Optional, Callable, Union
 
 class Command:
@@ -98,11 +99,30 @@ class Command:
         """Wait for the process to complete and return exit code."""
         if not self.process:
             raise RuntimeError("Process not started")
-        code = self.process.wait(timeout=timeout)
-        # Wait for the threads to finish reading the streams
-        self._stdout_thread.join()
-        self._stderr_thread.join()
+        try:
+            code = self._wait_internal(timeout=timeout)
+        except KeyboardInterrupt as e:
+            self.terminate()
+            raise e
+        finally:
+            # Wait for the threads to finish reading the streams
+            self._stdout_thread.join()
+            self._stderr_thread.join()
         return code
+
+    def _wait_internal(self, timeout=None):
+        """Implementation of wait that uses non-blocking calls to be responsive to KeyboardInterrupt."""
+        if self.process.returncode is not None:
+            return self.process.returncode
+        if timeout is not None:
+            endtime = time.monotonic() + timeout
+        else:
+            endtime = None
+        while self.process.poll() is None:
+            time.sleep(0.5)
+            if endtime is not None and time.monotonic() > endtime:
+                raise subprocess.TimeoutExpired(self.process.args, timeout)
+        return self.process.returncode
 
     def __enter__(self):
         if not self.process:
