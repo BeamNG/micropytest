@@ -1,5 +1,3 @@
-import asyncio
-import functools
 import logging
 import sys
 import os
@@ -11,7 +9,6 @@ from os import PathLike
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from concurrent.futures import ProcessPoolExecutor
 import importlib.util
 from .parameters import Args
 from .progress import TestProgress
@@ -277,23 +274,11 @@ async def run_test_async(fn, ctx, args: Args):
         else:
             r = await fn(ctx, *args.args, **args.kwargs)
     else:
-        # Non-async functions might use blocking calls or CPU-bound operations that block the event loop,
-        # so we run them in a separate executor to be responsive to signals such as Ctrl+C (KeyboardInterrupt).
         if len(inspect.signature(fn).parameters) == 0:
-            f = functools.partial(fn, *args.args, **args.kwargs)
+            r = fn(*args.args, **args.kwargs)
         else:
-            f = functools.partial(fn, ctx, *args.args, **args.kwargs)
-        r = await _run_sync_function(f)
+            r = fn(ctx, *args.args, **args.kwargs)
     return r
-
-
-async def _run_sync_function(func):
-    executor = ProcessPoolExecutor()
-    loop = asyncio.get_running_loop()
-    try:
-        return await loop.run_in_executor(executor, func)
-    except asyncio.CancelledError as e:
-        raise KeyboardInterrupt() from e
 
 
 async def run_tests(
