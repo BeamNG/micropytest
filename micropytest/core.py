@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import sys
 import os
@@ -267,12 +268,12 @@ def store_lastrun(tests_root, test_durations):
         pass
 
 
-async def run_test_async(fn, ctx, args: Args):
+def run_test_function(fn, ctx, args: Args):
     if inspect.iscoroutinefunction(fn):
         if len(inspect.signature(fn).parameters) == 0:
-            r = await fn(*args.args, **args.kwargs)
+            r = asyncio.run(fn(*args.args, **args.kwargs))
         else:
-            r = await fn(ctx, *args.args, **args.kwargs)
+            r = asyncio.run(fn(ctx, *args.args, **args.kwargs))
     else:
         if len(inspect.signature(fn).parameters) == 0:
             r = fn(*args.args, **args.kwargs)
@@ -281,7 +282,7 @@ async def run_test_async(fn, ctx, args: Args):
     return r
 
 
-async def run_tests(
+def run_tests(
     tests_path,
     show_estimates=False,
     context_class=TestContext,
@@ -315,7 +316,7 @@ async def run_tests(
     """
     discover_ctx = context_class(**context_kwargs)
     tests = discover_tests(discover_ctx, tests_path, test_filter, tag_filter, exclude_tags)
-    test_results = await run_discovered_tests(
+    test_results = run_discovered_tests(
         tests_path, tests, show_estimates, show_progress, context_class, context_kwargs, dry_run
     )
     return test_results
@@ -327,7 +328,7 @@ def get_logger():
     return root_logger
 
 
-async def run_discovered_tests(
+def run_discovered_tests(
     tests_path,
     tests: list[Test],
     show_estimates=False,
@@ -365,7 +366,7 @@ async def run_discovered_tests(
 
             _show_estimate(show_estimates, test_durations, test.key, root_logger)
 
-            result = await run_test_collect_result(test, ctx, root_logger, dry_run)
+            result = run_test_collect_result(test, ctx, root_logger, dry_run)
             counts.update(result)
 
             test_durations[test.key] = result.duration_s
@@ -389,17 +390,17 @@ async def run_discovered_tests(
     return test_results
 
 
-async def run_single_test(test: Test, ctx: TestContext) -> TestResult:
+def run_single_test(test: Test, ctx: TestContext) -> TestResult:
     """Run a single test and return its result."""
     root_logger = get_logger()
     test_handler = GlobalContextLogHandler(ctx, formatter=SimpleLogFormatter(use_colors=False))
     root_logger.addHandler(test_handler)
-    result = await run_test_collect_result(test, ctx, root_logger, dry_run=False)
+    result = run_test_collect_result(test, ctx, root_logger, dry_run=False)
     root_logger.removeHandler(test_handler)
     return result
 
 
-async def run_test_collect_result(test: Test, ctx, logger, dry_run) -> TestResult:
+def run_test_collect_result(test: Test, ctx, logger, dry_run) -> TestResult:
     """Try to run a single test and return its result."""
 
     key = test.key
@@ -410,7 +411,7 @@ async def run_test_collect_result(test: Test, ctx, logger, dry_run) -> TestResul
 
     try:
         if not dry_run:
-            return_value = await run_test_async(test.function, ctx, test.args)
+            return_value = run_test_function(test.function, ctx, test.args)
 
         duration = time.perf_counter() - t0
         status = "pass"

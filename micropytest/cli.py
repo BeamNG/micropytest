@@ -1,8 +1,6 @@
-import os
 import sys
 import argparse
 import logging
-import asyncio
 
 from rich.console import Console
 from rich.text import Text
@@ -85,7 +83,7 @@ def console_main():
         logging.info("micropytest version: {}".format(__version__))
 
     # Run tests with progress bar
-    test_results = asyncio.run(run_tests(
+    test_results = run_tests(
         tests_path=args.path,
         show_estimates=show_estimates,
         test_filter=args.test,
@@ -93,7 +91,7 @@ def console_main():
         exclude_tags=args.exclude_tags,
         show_progress=show_progress,
         dry_run=args.dry_run,
-    ))
+    )
     stats = TestStats.from_results(test_results)
 
     # If not quiet, we print the fancy ASCII summary and per-test lines
