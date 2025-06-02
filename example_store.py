@@ -5,12 +5,6 @@ import logging
 from typing import Any, Optional
 
 
-# TODO:
-# - keepalive that runs in the background (every 5 seconds, server: if not signal after 30s -> no-response-timeout)
-# - keepalive->cancel should abort single test (even during running)
-
-
-
 class TestContextStored(TestContext):
     def __init__(self, store: TestStore, run_id: Optional[int] = None):
         super().__init__()
