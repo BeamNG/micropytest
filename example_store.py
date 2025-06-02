@@ -1,9 +1,8 @@
 """Example using TestStore."""
-from micropytest.store import TestStore
+from micropytest.store import TestStore, KeepAlive
 from micropytest.core import discover_tests, TestContext, run_single_test
 import logging
 from typing import Any, Optional
-import asyncio
 
 
 # TODO:
@@ -27,7 +26,7 @@ class TestContextStored(TestContext):
         self.store.add_logs(self.run_id, [record])
 
 
-async def main():
+def main():
     store = TestStore(url="http://localhost:8000")
     discover_ctx = TestContextStored(store)
     tests_path = "."
@@ -42,10 +41,15 @@ async def main():
         test_run = store.start_test()
         if test_run is None:
             break
-        ctx = TestContextStored(store, test_run.id)
-        result = await run_single_test(test_run.test, ctx)
-        store.finish_test(test_run.id, result)
+        ctx = TestContextStored(store, test_run.run_id)
+        try:
+            with KeepAlive(store, test_run.run_id):
+                result = run_single_test(test_run.test, ctx)
+            store.finish_test(test_run.run_id, result)
+        except KeyboardInterrupt:
+            # test was cancelled on server side
+            pass
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

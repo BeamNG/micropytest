@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import os
 import sys
+import subprocess
 from logging import LogRecord
 from pydantic import BaseModel, JsonValue, Base64Bytes, Field
 from typing import Literal, Annotated
@@ -238,6 +239,7 @@ class TestStore:
         self.headers: dict[str, str] = headers or {}
         self.repository: LocalRepository = repository or LocalRepository.get()
         self.platform: str = platform or get_current_platform()
+        self._test_alive_daemon = TestAliveDaemon(url)
 
     def test_definition(self, test: Test) -> TestDefinition:
         return TestDefinition(
@@ -329,14 +331,6 @@ class TestStore:
         )
         response = requests.post(url, json=d.model_dump(), headers=self.headers)
         response.raise_for_status()
-
-    def running_alive(self, run_id: int) -> bool:
-        """Report to server that a test is still running, return True if the test was cancelled server side."""
-        url = f"{self.url}/runs/{run_id}/running_alive"
-        response = requests.put(url, headers=self.headers)
-        response.raise_for_status()
-        response_data = RunningAliveResponseData.model_validate(response.json())
-        return response_data.cancel
 
     def finish_test(self, run_id: int, result: TestResult) -> None:
         """Finish a test run, reporting the result.
@@ -473,3 +467,49 @@ def get_current_platform() -> Literal["windows", "linux", "macos"]:
         return "macos"
     else:
         raise ValueError(f"Unknown platform: {platform}")
+
+
+class KeepAlive:
+    def __init__(self, store: TestStore, run_id: int):
+        self.store = store
+        self.run_id = run_id
+
+    def __enter__(self):
+        # report to daemon that test run id is running
+        self.store._test_alive_daemon.start(self.run_id)
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        # report to daemon that test run id is finished
+        self.store._test_alive_daemon.stop()
+
+
+class TestAliveDaemon:
+    """Persistent subprocess that sends keep-alive messages to the server periodically.
+    The subprocess is terminated when the TestStore object goes out of scope.
+    """
+    def __init__(self, api_endpoint):
+        self.proc = subprocess.Popen(
+            [sys.executable, "daemon.py", api_endpoint],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            bufsize=1,
+            universal_newlines=True,
+            close_fds=(os.name != 'nt'),
+        )
+
+    def _write(self, line: str):
+        if self.proc.poll() is not None:
+            raise RuntimeError("Child process is not running")
+        self.proc.stdin.write(line)
+        self.proc.stdin.flush()
+
+    def start(self, run_id: int):
+        self._write(f"start {run_id}\n")
+
+    def stop(self):
+        self._write("stop\n")
+
+    def __del__(self):
+        # closing stdin will cause the child process to exit
+        self.proc.stdin.close()
