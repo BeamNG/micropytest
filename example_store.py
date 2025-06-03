@@ -21,7 +21,7 @@ class TestContextStored(TestContext):
 
 
 def main():
-    store = TestStore(url="http://localhost:8000")
+    store = TestStore(url="http://localhost:8000/testframework/api")
     discover_ctx = TestContextStored(store)
     tests_path = "."
 
