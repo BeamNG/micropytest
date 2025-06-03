@@ -3,7 +3,7 @@ from micropytest.store import TestStore, KeepAlive
 from micropytest.core import discover_tests, TestContext, run_single_test
 import logging
 from typing import Any, Optional
-
+import time
 
 class TestContextStored(TestContext):
     def __init__(self, store: TestStore, run_id: Optional[int] = None):
@@ -27,8 +27,10 @@ def main():
 
     # Discover tests and enqueue them
     tests = discover_tests(discover_ctx, tests_path)
+    t = time.time()
     for test in tests:
         store.enqueue_test(test)
+    print(f"Enqueued {len(tests)} tests in {time.time() - t:.2f} seconds")
 
     # Start tests in queue
     while True:
