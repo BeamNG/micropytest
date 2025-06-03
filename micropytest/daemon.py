@@ -17,6 +17,7 @@ def main():
         print("Usage: python daemon.py <api_endpoint>", file=sys.stderr)
         sys.exit(1)
     api_endpoint = sys.argv[1]
+    session = requests.Session()
 
     run_id = None
     lock = threading.Lock()
@@ -29,7 +30,7 @@ def main():
                 rid = run_id
             if rid is None:
                 continue
-            cancel = send_running_alive(rid, api_endpoint)
+            cancel = send_running_alive(rid, api_endpoint, session)
             if cancel:
                 try:
                     os.kill(parent_pid, signal.SIGINT)
@@ -58,10 +59,10 @@ def main():
     thread.join()
 
 
-def send_running_alive(run_id: int, url: str) -> bool:
+def send_running_alive(run_id: int, url: str, session: requests.Session) -> bool:
     """Report to server that a test is still running, return True if the test was cancelled server side."""
     url = f"{url}/runs/{run_id}/running_alive"
-    response = requests.put(url, headers={}, timeout=1)
+    response = session.put(url, headers={}, timeout=1)
     response.raise_for_status()
     response_data = RunningAliveResponseData.model_validate(response.json())
     return response_data.cancel
