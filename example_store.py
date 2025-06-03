@@ -1,23 +1,7 @@
 """Example using TestStore."""
-from micropytest.store import TestStore, KeepAlive
-from micropytest.core import discover_tests, TestContext, run_single_test
-import logging
-from typing import Any, Optional
 import time
-
-class TestContextStored(TestContext):
-    def __init__(self, store: TestStore, run_id: Optional[int] = None):
-        super().__init__()
-        self.store: TestStore = store
-        self.run_id: int = run_id
-
-    def add_artifact(self, key: str, value: Any):
-        super().add_artifact(key, value)
-        self.store.add_artifact(self.run_id, key, value)
-
-    def add_log(self, record: logging.LogRecord):
-        super().add_log(record)
-        self.store.add_logs(self.run_id, [record])
+from micropytest.store import TestStore, KeepAlive, TestContextStored
+from micropytest.core import discover_tests, run_single_test
 
 
 def main():

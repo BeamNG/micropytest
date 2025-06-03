@@ -5,12 +5,12 @@ from datetime import datetime, timezone
 import os
 import sys
 import subprocess
-from logging import LogRecord
+import logging
 from pydantic import BaseModel, JsonValue, Base64Bytes, Field
 from typing import Literal, Annotated, Any
 import requests
 from .types import Test, Args, TestResult, TestAttributes
-from .core import SkipTest, load_test_module_by_path
+from .core import SkipTest, load_test_module_by_path, TestContext
 from .vcs_helper import VCSHelper
 from .types import TestStatus
 
@@ -110,7 +110,7 @@ class LogEntry(BaseModel):
     message: str
 
     @staticmethod
-    def from_record(record: LogRecord) -> "LogEntry":
+    def from_record(record: logging.LogRecord) -> "LogEntry":
         return LogEntry(
             time=datetime.fromtimestamp(record.created, tz=timezone.utc),
             level=record.levelname,
@@ -323,7 +323,7 @@ class TestStore:
         response = self.session.post(url, json=dump_json(d), headers=self.headers)
         response.raise_for_status()
 
-    def add_logs(self, run_id: int, logs: list[LogRecord]) -> None:
+    def add_logs(self, run_id: int, logs: list[logging.LogRecord]) -> None:
         """Add logs to a running test."""
         # This can be called by the TestContext
         url = f"{self.url}/runs/{run_id}/logs/add"
@@ -436,6 +436,22 @@ class TestStore:
         response.raise_for_status()
         response_data = GetTestsResponseData.model_validate(response.json())
         return [self.to_test(td) for td in response_data.test_definitions]
+
+
+class TestContextStored(TestContext):
+    """A test context that stores artifacts and logs in the test store."""
+    def __init__(self, store: TestStore, run_id: Optional[int] = None):
+        super().__init__()
+        self.store: TestStore = store
+        self.run_id: int = run_id
+
+    def add_artifact(self, key: str, value: Any):
+        super().add_artifact(key, value)
+        self.store.add_artifact(self.run_id, key, value)
+
+    def add_log(self, record: logging.LogRecord):
+        super().add_log(record)
+        self.store.add_logs(self.run_id, [record])
 
 
 def _to_list(value, default):
