@@ -259,7 +259,7 @@ class GitVCS(VCSInterface):
 
         try:
             result = subprocess.run(
-                ['git', 'log', f'-{limit}', '--pretty=format:%h|%an|%ae|%at|%s', '--', file_path],
+                ['git', 'log', f'-{limit}', '--pretty=format:%H|%an|%ae|%at|%s', '--', file_path],
                 capture_output=True, text=True, check=True
             )
 

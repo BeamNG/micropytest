@@ -7,7 +7,7 @@ import sys
 import subprocess
 from logging import LogRecord
 from pydantic import BaseModel, JsonValue, Base64Bytes, Field
-from typing import Literal, Annotated
+from typing import Literal, Annotated, Any
 import requests
 from .types import Test, Args, TestResult, TestAttributes
 from .core import SkipTest, load_test_module_by_path
@@ -290,7 +290,7 @@ class TestStore:
             platform=self.platform
         )
         url = f"{self.url}/enqueue"
-        response = requests.post(url, json=d.model_dump(), headers=self.headers)
+        response = requests.post(url, json=dump_json(d), headers=self.headers)
         response.raise_for_status()
         return EnqueueResponseData.model_validate(response.json())
 
@@ -304,7 +304,7 @@ class TestStore:
             branch=self.repository.branch,
             platform=self.platform,
         )
-        response = requests.post(url, json=d.model_dump(), headers=self.headers)
+        response = requests.post(url, json=dump_json(d), headers=self.headers)
         response.raise_for_status()
         response_data = StartResponseData.model_validate(response.json())
         if response_data.test_run is None:
@@ -319,7 +319,7 @@ class TestStore:
             key=key,
             value=TypedBytes.wrap(value) if isinstance(value, bytes) else TypedJson.wrap(value),
         )
-        response = requests.post(url, json=d.model_dump(), headers=self.headers)
+        response = requests.post(url, json=dump_json(d), headers=self.headers)
         response.raise_for_status()
 
     def add_logs(self, run_id: int, logs: list[LogRecord]) -> None:
@@ -329,7 +329,7 @@ class TestStore:
         d = AddLogsRequestData(
             logs=[LogEntry.from_record(record) for record in logs],
         )
-        response = requests.post(url, json=d.model_dump(), headers=self.headers)
+        response = requests.post(url, json=dump_json(d), headers=self.headers)
         response.raise_for_status()
 
     def finish_test(self, run_id: int, result: TestResult) -> None:
@@ -344,7 +344,7 @@ class TestStore:
             finish_reason=_to_finish_reason(result.exception),
         )
         url = f"{self.url}/runs/{run_id}/finish"
-        response = requests.put(url, json=d.model_dump(), headers=self.headers)
+        response = requests.put(url, json=dump_json(d), headers=self.headers)
         response.raise_for_status()
 
     def get_test_runs(
@@ -380,7 +380,7 @@ class TestStore:
             artifact_keys=artifact_keys,
         )
         url = f"{self.url}/runs/get"
-        response = requests.post(url, json=d.model_dump(), headers=self.headers)
+        response = requests.post(url, json=dump_json(d), headers=self.headers)
         response.raise_for_status()
         response_data = GetTestRunsResponseData.model_validate(response.json())
         return [self.to_test_run(run) for run in response_data.test_runs]
@@ -405,7 +405,7 @@ class TestStore:
         keys = _to_list(key, [])
         d = GetArtifactsRequestData(keys=keys)
         url = f"{self.url}/runs/{run_id}/artifacts/get"
-        response = requests.post(url, json=d.model_dump(), headers=self.headers)
+        response = requests.post(url, json=dump_json(d), headers=self.headers)
         response.raise_for_status()
         response_data = GetArtifactsResponseData.model_validate(response.json())
         return {key: value.unwrap() for key, value in response_data.artifacts.items()}
@@ -418,7 +418,7 @@ class TestStore:
         levels = _to_list(level, [])
         d = GetLogsRequestData(levels=levels)
         url = f"{self.url}/runs/{run_id}/logs/get"
-        response = requests.post(url, json=d.model_dump(), headers=self.headers)
+        response = requests.post(url, json=dump_json(d), headers=self.headers)
         response.raise_for_status()
         response_data = GetLogsResponseData.model_validate(response.json())
         return response_data.logs
@@ -431,7 +431,7 @@ class TestStore:
             name=test_attributes.name,
         )
         url = f"{self.url}/tests/get"
-        response = requests.post(url, json=d.model_dump(), headers=self.headers)
+        response = requests.post(url, json=dump_json(d), headers=self.headers)
         response.raise_for_status()
         response_data = GetTestsResponseData.model_validate(response.json())
         return [self.to_test(td) for td in response_data.test_definitions]
@@ -513,3 +513,8 @@ class TestAliveDaemon:
     def __del__(self):
         # closing stdin will cause the child process to exit
         self.proc.stdin.close()
+
+
+def dump_json(obj: BaseModel) -> Any:
+    """Helper to dump JSON-compatible data."""
+    return obj.model_dump(mode="json")
