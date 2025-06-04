@@ -533,6 +533,7 @@ class TestAliveDaemon:
             bufsize=1,
             universal_newlines=True,
             close_fds=(os.name != 'nt'),
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0,
         )
 
     def _write(self, line: str):
@@ -547,9 +548,13 @@ class TestAliveDaemon:
     def stop(self):
         self._write("stop\n")
 
-    def __del__(self):
+    def close(self):
         # closing stdin will cause the child process to exit
         self.proc.stdin.close()
+        self.proc.wait()  # wait for child to actually exit
+
+    def __del__(self):
+        self.close()
 
 
 def dump_json(obj: BaseModel) -> Any:

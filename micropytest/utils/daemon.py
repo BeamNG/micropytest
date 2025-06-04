@@ -21,19 +21,40 @@ def main():
     run_id = None
     lock = threading.Lock()
     parent_pid = os.getppid()
+    print(f"Started keep-alive daemon pid={os.getpid()} parent_pid={parent_pid}")
+
+    def sleep_responsive(t: float):
+        """Sleep for t seconds and return run_id, returns early if run_id is None or -1."""
+        slept = 0.0
+        sleep_time = 0.1
+        while True:
+            time.sleep(sleep_time)
+            slept += sleep_time
+            with lock:
+                rid = run_id
+            if slept >= t or rid is None or rid == -1:
+                break
+        return rid
 
     def worker():
         nonlocal run_id
         while True:
-            time.sleep(ALIVE_INTERVAL)
-            with lock:
-                rid = run_id
+            rid = sleep_responsive(ALIVE_INTERVAL)
             if rid is None:
                 continue
+            if rid == -1:
+                break  # main thread exited loop
+            print(f"Sending keep-alive for run {rid}")
             cancel = send_running_alive(rid, api_endpoint, session)
             if cancel:
                 try:
-                    os.kill(parent_pid, signal.SIGINT)
+                    print("Got cancel: sending SIGINT to parent process")
+                    if os.name == 'nt':
+                        import ctypes
+                        kernel32 = ctypes.windll.kernel32
+                        kernel32.GenerateConsoleCtrlEvent(0, 0)
+                    else:
+                        os.kill(parent_pid, signal.SIGINT)
                 except Exception:
                     pass
                 with lock:
@@ -45,8 +66,12 @@ def main():
     while True:
         line = sys.stdin.readline()
         if line == '':
-            break  # parent exited or closed stdin -> exit
+            # parent exited or closed stdin -> exit
+            with lock:
+                run_id = -1  # request thread to exit
+            break
         line = line.strip()
+        print(f"Received command: {line}")
         with lock:
             if line.startswith("start "):
                 parts = line.split()
@@ -57,6 +82,8 @@ def main():
                 run_id = None
 
     thread.join()
+    time.sleep(0.1)  # without this the parent process often exits with code 130 instead of 0 on Windows
+    print("Keep-alive daemon exited normally")
 
 
 def send_running_alive(run_id: int, url: str, session: requests.Session) -> bool:
