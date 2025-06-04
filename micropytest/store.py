@@ -276,7 +276,7 @@ class TestStore:
         )
 
     def to_test_run(self, test_run_data: TestRunData) -> TestRun:
-        TestRun(
+        return TestRun(
             test=self.to_test(test_run_data.test),
             run_number=test_run_data.run_number,
             run_id=test_run_data.run_id,
