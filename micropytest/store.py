@@ -524,7 +524,7 @@ class TestAliveDaemon:
     The subprocess is terminated when the TestStore object goes out of scope.
     """
     def __init__(self, api_endpoint):
-        daemon_file = os.path.join(os.path.dirname(__file__), "daemon.py")
+        daemon_file = os.path.join(os.path.dirname(__file__), "utils", "daemon.py")
         self.proc = subprocess.Popen(
             [sys.executable, daemon_file, api_endpoint],
             stdin=subprocess.PIPE,
