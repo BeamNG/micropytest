@@ -40,7 +40,7 @@ class TestRunData(BaseModel):
     run_id: int
     status: TestRunStatus
     exception: Optional[str]
-    duration: float
+    duration: Optional[float]
     group: TestGroupData
     num_logs: int
     num_artifacts: int
@@ -196,7 +196,7 @@ class TestRun:
     run_id: int
     status: TestRunStatus
     exception: Optional[str]
-    duration: float
+    duration: Optional[float]
     group: TestGroupData
     num_logs: int
     num_artifacts: int
