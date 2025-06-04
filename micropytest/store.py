@@ -26,6 +26,14 @@ class TestDefinition(BaseModel):
     args: str
 
 
+class TestGroupData(BaseModel):
+    id: int
+    repository_name: str
+    commit: str
+    branch: str
+    platform: str
+
+
 class TestRunData(BaseModel):
     test: TestDefinition
     run_number: int
@@ -33,12 +41,10 @@ class TestRunData(BaseModel):
     status: TestRunStatus
     exception: Optional[str]
     duration: float
-    commit: str
-    branch: str
-    platform: str
+    group: TestGroupData
     num_logs: int
     num_artifacts: int
-    artifact_keys: Optional[list[str]]
+    artifact_keys: Optional[list[str]]  # None means artifact keys were not requested
     queued_at: datetime
     started_at: Optional[datetime]
     finished_at: Optional[datetime]
@@ -184,18 +190,17 @@ class GetTestsResponseData(BaseModel):
 
 @dataclass
 class TestRun:
+    # Note: this differs from the TestRunData class only in the data type of the test field
     test: Test
     run_number: int
     run_id: int
     status: TestRunStatus
     exception: Optional[str]
     duration: float
-    commit: str
-    branch: str
-    platform: str
+    group: TestGroupData
     num_logs: int
     num_artifacts: int
-    artifact_keys: Optional[list[str]]
+    artifact_keys: Optional[list[str]]  # None means artifact keys were not requested
     queued_at: datetime
     started_at: Optional[datetime]
     finished_at: Optional[datetime]
@@ -278,9 +283,7 @@ class TestStore:
             status=test_run_data.status,
             exception=test_run_data.exception,
             duration=test_run_data.duration,
-            commit=test_run_data.commit,
-            branch=test_run_data.branch,
-            platform=test_run_data.platform,
+            group=test_run_data.group,
             num_logs=test_run_data.num_logs,
             num_artifacts=test_run_data.num_artifacts,
             artifact_keys=test_run_data.artifact_keys,
