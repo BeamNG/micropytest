@@ -246,12 +246,14 @@ class TestStore:
         repository: Optional[LocalRepository] = None,
         platform: Optional[str] = None,
         group: Optional[int] = None,
+        timeout: float = 10.0,
     ):
         self.url: str = url
         self.headers: dict[str, str] = headers or {}
         self.repository: LocalRepository = repository or LocalRepository.get()
         self.platform: str = platform or get_current_platform()
         self.group: Optional[int] = group  # group ID for this test store
+        self.timeout: float = timeout
         self._test_alive_daemon = TestAliveDaemon(url)
         self._session = requests.Session()
 
@@ -302,7 +304,7 @@ class TestStore:
             branch=self.repository.branch,
             platform=self.platform,
         )
-        response = self._session.post(url, json=dump_json(d), headers=self.headers)
+        response = self._session.post(url, json=dump_json(d), headers=self.headers, timeout=self.timeout)
         response.raise_for_status()
         return CreateGroupResponseData.model_validate(response.json()).group_id
 
@@ -315,7 +317,7 @@ class TestStore:
             group_id=self.group,
         )
         url = f"{self.url}/enqueue"
-        response = self._session.post(url, json=dump_json(d), headers=self.headers)
+        response = self._session.post(url, json=dump_json(d), headers=self.headers, timeout=self.timeout)
         response.raise_for_status()
         return EnqueueResponseData.model_validate(response.json())
 
@@ -324,7 +326,7 @@ class TestStore:
         # gets the next test matching the store's test group in the order of enqueueing
         url = f"{self.url}/start"
         d = StartRequestData(group_id=self.group)
-        response = self._session.post(url, json=dump_json(d), headers=self.headers)
+        response = self._session.post(url, json=dump_json(d), headers=self.headers, timeout=self.timeout)
         response.raise_for_status()
         response_data = StartResponseData.model_validate(response.json())
         if response_data.test_run is None:
@@ -339,7 +341,7 @@ class TestStore:
             key=key,
             value=TypedBytes.wrap(value) if isinstance(value, bytes) else TypedJson.wrap(value),
         )
-        response = self._session.post(url, json=dump_json(d), headers=self.headers)
+        response = self._session.post(url, json=dump_json(d), headers=self.headers, timeout=self.timeout)
         response.raise_for_status()
 
     def add_logs(self, run_id: int, logs: list[logging.LogRecord]) -> None:
@@ -349,7 +351,7 @@ class TestStore:
         d = AddLogsRequestData(
             logs=[LogEntry.from_record(record) for record in logs],
         )
-        response = self._session.post(url, json=dump_json(d), headers=self.headers)
+        response = self._session.post(url, json=dump_json(d), headers=self.headers, timeout=self.timeout)
         response.raise_for_status()
 
     def finish_test(self, run_id: int, result: TestResult) -> None:
@@ -364,7 +366,7 @@ class TestStore:
             finish_reason=_to_finish_reason(result.exception),
         )
         url = f"{self.url}/runs/{run_id}/finish"
-        response = self._session.put(url, json=dump_json(d), headers=self.headers)
+        response = self._session.put(url, json=dump_json(d), headers=self.headers, timeout=self.timeout)
         response.raise_for_status()
 
     def get_test_runs(
@@ -400,7 +402,7 @@ class TestStore:
             artifact_keys=artifact_keys,
         )
         url = f"{self.url}/runs/get"
-        response = self._session.post(url, json=dump_json(d), headers=self.headers)
+        response = self._session.post(url, json=dump_json(d), headers=self.headers, timeout=self.timeout)
         response.raise_for_status()
         response_data = GetTestRunsResponseData.model_validate(response.json())
         return [self.to_test_run(run) for run in response_data.test_runs]
@@ -425,7 +427,7 @@ class TestStore:
         keys = _to_list(key, [])
         d = GetArtifactsRequestData(keys=keys)
         url = f"{self.url}/runs/{run_id}/artifacts/get"
-        response = self._session.post(url, json=dump_json(d), headers=self.headers)
+        response = self._session.post(url, json=dump_json(d), headers=self.headers, timeout=self.timeout)
         response.raise_for_status()
         response_data = GetArtifactsResponseData.model_validate(response.json())
         return {key: value.unwrap() for key, value in response_data.artifacts.items()}
@@ -438,7 +440,7 @@ class TestStore:
         levels = _to_list(level, [])
         d = GetLogsRequestData(levels=levels)
         url = f"{self.url}/runs/{run_id}/logs/get"
-        response = self._session.post(url, json=dump_json(d), headers=self.headers)
+        response = self._session.post(url, json=dump_json(d), headers=self.headers, timeout=self.timeout)
         response.raise_for_status()
         response_data = GetLogsResponseData.model_validate(response.json())
         return response_data.logs
@@ -451,7 +453,7 @@ class TestStore:
             name=test_attributes.name,
         )
         url = f"{self.url}/tests/get"
-        response = self._session.post(url, json=dump_json(d), headers=self.headers)
+        response = self._session.post(url, json=dump_json(d), headers=self.headers, timeout=self.timeout)
         response.raise_for_status()
         response_data = GetTestsResponseData.model_validate(response.json())
         return [self.to_test(td) for td in response_data.test_definitions]
