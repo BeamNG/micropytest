@@ -318,7 +318,7 @@ class TestStore:
 
     def start_test(self) -> Optional[TestRun]:
         """Get the next test from the queue to start execution (or None if there are no more tests to run)."""
-        # get the next test matching repository, commit, branch, and platform
+        # gets the next test matching the store's test group in the order of enqueueing
         url = f"{self.url}/start"
         d = StartRequestData(group_id=self.group)
         response = self._session.post(url, json=dump_json(d), headers=self.headers)
