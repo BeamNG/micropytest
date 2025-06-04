@@ -430,7 +430,7 @@ def run_test_collect_result(test: Test, ctx, logger, dry_run) -> TestResult:
         duration = time.perf_counter() - t0
         status = "fail"
         exception = e
-        logger.error(f"FINISHED FAIL: {key} ({duration:.3f}s)\n{traceback.format_exc()}")
+        logger.error(f"FINISHED FAIL: {key} ({duration:.3f}s)\n{format_exception(e)}")
 
     return TestResult(
         test=test,
@@ -462,3 +462,9 @@ def _show_estimate(show_estimates, test_durations, key, logger):
         if known_dur > TIME_REPORT_CUTOFF:
             est_str = f" (estimated ~ {known_dur:.2g} seconds)"
         logger.info(f"STARTING: {key}{est_str}")
+
+
+def format_exception(exception: Exception) -> str:
+    """Format exception using '{type}: {message}\\n{traceback}'."""
+    tb_str = ''.join(traceback.format_exception(type(exception), exception, exception.__traceback__))
+    return f"{type(exception).__name__}: {exception}\n{tb_str}"

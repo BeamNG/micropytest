@@ -10,7 +10,7 @@ from pydantic import BaseModel, JsonValue, Base64Bytes, Field
 from typing import Literal, Annotated, Any
 import requests
 from .types import Test, Args, TestResult, TestAttributes
-from .core import SkipTest, load_test_module_by_path, TestContext
+from .core import SkipTest, load_test_module_by_path, TestContext, format_exception
 from .vcs_helper import VCSHelper
 from .types import TestStatus
 
@@ -361,7 +361,7 @@ class TestStore:
         """
         d = FinishTestRequestData(
             status=result.status,
-            exception=result.exception,
+            exception=format_exception(result.exception) if result.exception is not None else None,
             duration=result.duration_s,
             finish_reason=_to_finish_reason(result.exception),
         )
