@@ -524,8 +524,9 @@ class TestAliveDaemon:
     The subprocess is terminated when the TestStore object goes out of scope.
     """
     def __init__(self, api_endpoint):
+        daemon_file = os.path.join(os.path.dirname(__file__), "daemon.py")
         self.proc = subprocess.Popen(
-            [sys.executable, "daemon.py", api_endpoint],
+            [sys.executable, daemon_file, api_endpoint],
             stdin=subprocess.PIPE,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
@@ -536,7 +537,7 @@ class TestAliveDaemon:
 
     def _write(self, line: str):
         if self.proc.poll() is not None:
-            raise RuntimeError("Child process is not running")
+            raise RuntimeError("Keep-alive daemon process is not running")
         self.proc.stdin.write(line)
         self.proc.stdin.flush()
 

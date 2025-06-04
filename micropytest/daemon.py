@@ -8,7 +8,6 @@ import signal
 import time
 import threading
 import requests
-from micropytest.store import RunningAliveResponseData
 
 ALIVE_INTERVAL = 5  # seconds
 
@@ -24,6 +23,7 @@ def main():
     parent_pid = os.getppid()
 
     def worker():
+        nonlocal run_id
         while True:
             time.sleep(ALIVE_INTERVAL)
             with lock:
@@ -61,11 +61,10 @@ def main():
 
 def send_running_alive(run_id: int, url: str, session: requests.Session) -> bool:
     """Report to server that a test is still running, return True if the test was cancelled server side."""
-    url = f"{url}/runs/{run_id}/running_alive"
+    url = f"{url}/runs/{run_id}/alive"
     response = session.put(url, headers={}, timeout=1)
     response.raise_for_status()
-    response_data = RunningAliveResponseData.model_validate(response.json())
-    return response_data.cancel
+    return response.json()['cancel']
 
 
 if __name__ == "__main__":
