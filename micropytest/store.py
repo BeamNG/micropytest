@@ -304,7 +304,7 @@ class TestStore:
             branch=self.repository.branch,
             platform=self.platform,
         )
-        response = self._session.post(url, json=dump_json(d), headers=self.headers, timeout=self.timeout)
+        response = self._post(url, json=d)
         response.raise_for_status()
         return CreateGroupResponseData.model_validate(response.json()).group_id
 
@@ -317,7 +317,7 @@ class TestStore:
             group_id=self.group,
         )
         url = f"{self.url}/enqueue"
-        response = self._session.post(url, json=dump_json(d), headers=self.headers, timeout=self.timeout)
+        response = self._post(url, json=d)
         response.raise_for_status()
         return EnqueueResponseData.model_validate(response.json())
 
@@ -326,7 +326,7 @@ class TestStore:
         # gets the next test matching the store's test group in the order of enqueueing
         url = f"{self.url}/start"
         d = StartRequestData(group_id=self.group)
-        response = self._session.post(url, json=dump_json(d), headers=self.headers, timeout=self.timeout)
+        response = self._post(url, json=d)
         response.raise_for_status()
         response_data = StartResponseData.model_validate(response.json())
         if response_data.test_run is None:
@@ -341,7 +341,7 @@ class TestStore:
             key=key,
             value=TypedBytes.wrap(value) if isinstance(value, bytes) else TypedJson.wrap(value),
         )
-        response = self._session.post(url, json=dump_json(d), headers=self.headers, timeout=self.timeout)
+        response = self._post(url, d)
         response.raise_for_status()
 
     def add_logs(self, run_id: int, logs: list[logging.LogRecord]) -> None:
@@ -351,7 +351,7 @@ class TestStore:
         d = AddLogsRequestData(
             logs=[LogEntry.from_record(record) for record in logs],
         )
-        response = self._session.post(url, json=dump_json(d), headers=self.headers, timeout=self.timeout)
+        response = self._post(url, json=d)
         response.raise_for_status()
 
     def finish_test(self, run_id: int, result: TestResult) -> None:
@@ -366,7 +366,7 @@ class TestStore:
             finish_reason=_to_finish_reason(result.exception),
         )
         url = f"{self.url}/runs/{run_id}/finish"
-        response = self._session.put(url, json=dump_json(d), headers=self.headers, timeout=self.timeout)
+        response = self._put(url, json=d)
         response.raise_for_status()
 
     def get_test_runs(
@@ -402,7 +402,7 @@ class TestStore:
             artifact_keys=artifact_keys,
         )
         url = f"{self.url}/runs/get"
-        response = self._session.post(url, json=dump_json(d), headers=self.headers, timeout=self.timeout)
+        response = self._post(url, json=d)
         response.raise_for_status()
         response_data = GetTestRunsResponseData.model_validate(response.json())
         return [self.to_test_run(run) for run in response_data.test_runs]
@@ -427,7 +427,7 @@ class TestStore:
         keys = _to_list(key, [])
         d = GetArtifactsRequestData(keys=keys)
         url = f"{self.url}/runs/{run_id}/artifacts/get"
-        response = self._session.post(url, json=dump_json(d), headers=self.headers, timeout=self.timeout)
+        response = self._post(url, json=d)
         response.raise_for_status()
         response_data = GetArtifactsResponseData.model_validate(response.json())
         return {key: value.unwrap() for key, value in response_data.artifacts.items()}
@@ -440,7 +440,7 @@ class TestStore:
         levels = _to_list(level, [])
         d = GetLogsRequestData(levels=levels)
         url = f"{self.url}/runs/{run_id}/logs/get"
-        response = self._session.post(url, json=dump_json(d), headers=self.headers, timeout=self.timeout)
+        response = self._post(url, json=d)
         response.raise_for_status()
         response_data = GetLogsResponseData.model_validate(response.json())
         return response_data.logs
@@ -453,10 +453,45 @@ class TestStore:
             name=test_attributes.name,
         )
         url = f"{self.url}/tests/get"
-        response = self._session.post(url, json=dump_json(d), headers=self.headers, timeout=self.timeout)
+        response = self._post(url, json=d)
         response.raise_for_status()
         response_data = GetTestsResponseData.model_validate(response.json())
         return [self.to_test(td) for td in response_data.test_definitions]
+
+    def _request(self, method: str, url: str, json: Optional[BaseModel] = None) -> requests.Response:
+        json_data = dump_json(json) if json is not None else None
+        # We need to disable logging during the request is made to prevent infinite recursion (posting request logs
+        # to the server, for example if the session pool is full)
+        with DisableLogging():
+            res = self._session.request(method, url, json=json_data, headers=self.headers, timeout=self.timeout)
+        return res
+
+    def _post(self, url: str, json: Optional[BaseModel] = None) -> requests.Response:
+        return self._request("POST", url, json=json)
+
+    def _put(self, url: str, json: Optional[BaseModel] = None) -> requests.Response:
+        return self._request("PUT", url, json=json)
+
+    def _get(self, url: str) -> requests.Response:
+        return self._request("GET", url, json=None)
+
+
+class DisableLogging:
+    def __init__(self):
+        self.original_levels = {}
+
+    def __enter__(self):
+        # Store original levels of all loggers
+        loggers = [logging.getLogger()] + [logging.getLogger(name) for name in logging.root.manager.loggerDict]
+        for logger in loggers:
+            self.original_levels[logger] = logger.level
+            logger.setLevel(logging.CRITICAL)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # Restore original levels
+        for logger, level in self.original_levels.items():
+            logger.setLevel(level)
 
 
 class TestContextStored(TestContext):
