@@ -152,6 +152,7 @@ class GetTestRunsRequestData(BaseModel):
     limit: int
     order: Literal[1, -1]
     status: list[str]
+    group: list[int]
     branch: list[str]
     platform: list[str]
     commit: list[str]
@@ -372,18 +373,33 @@ class TestStore:
     def get_test_runs(
         self,
         test: Test,
-        num: Optional[int] = None,
-        min: int = 0,
-        max: Optional[int] = None,
+        num: Optional[int] = None,  # run number
+        min: int = 0,  # minimum run number
+        max: Optional[int] = None,  # maximum run number
         limit: int = 100,
         order: Literal[1, -1] = 1,  # 1 for ascending, -1 for descending (by run number)
         status: Optional[Union[str, list[str]]] = None,
+        group: Optional[Union[int, list[int]]] = None,
         branch: Optional[Union[str, list[str]]] = None,
         platform: Optional[Union[str, list[str]]] = None,
         commit: Optional[Union[str, list[str]]] = None,
-        artifact_keys: bool = False
+        artifact_keys: bool = False  # request to include artifact keys in response
     ) -> list[TestRun]:
-        """Get test runs from the server."""
+        """Get test runs from the server.
+        
+        Parameters status, group, branch, platform and commit are used to filter test runs. If multiple values
+        are provided for a parameter the test run must match at least one of them. Empty list means no
+        filtering for that parameter. None means filter by default values. Default values are:
+        - status: ["pass", "fail"]
+        - group: self.group if set, otherwise no filtering
+        - branch: self.repository.branch
+        - platform: self.platform
+        - commit: no filtering
+
+        Parameters num (exact value), min (run number >= min) and max (run number <= max) refer to the run number.
+
+        Result is ordered by run number, either ascending (1) or descending (-1), according to the order parameter.
+        """
 
         if num is not None:
             min = num
@@ -396,9 +412,10 @@ class TestStore:
             limit=limit,
             order=order,
             status=_to_list(status, ["pass", "fail"]),
+            group=_to_list(group, [self.group] if self.group is not None else []),
             branch=_to_list(branch, [self.repository.branch]),
             platform=_to_list(platform, [self.platform]),
-            commit=_to_list(commit, [self.repository.commit]),
+            commit=_to_list(commit, []),
             artifact_keys=artifact_keys,
         )
         url = f"{self.url}/runs/get"
@@ -411,7 +428,7 @@ class TestStore:
         self,
         test: Test,
         status: Optional[Union[str, list[str]]] = None,
-        artifact_keys: bool = False
+        artifact_keys: bool = False,
     ) -> Optional[TestRun]:
         """Get the last test run for a test, optionally filtered by status."""
         runs = self.get_test_runs(test, order=-1, limit=1, status=status, artifact_keys=artifact_keys)
@@ -446,7 +463,7 @@ class TestStore:
         return response_data.logs
 
     def get_tests(self, test_attributes: TestAttributes) -> list[Test]:
-        """Get tests (including arguments) for a given TestAttributes."""
+        """Get tests (including arguments) for a given TestAttributes (ignoring tags)."""
         d = GetTestsRequestData(
             repository_name=self.repository.name,
             file_path=self.repository.relative_path(test_attributes.file),
