@@ -18,5 +18,7 @@ def test_artifact_dict(ctx):
 
 @tag('artifacts', 'filesystem', 'unit')
 def test_submit_current_file(ctx):
-    ctx.add_artifact("current_file", os.path.abspath(__file__))
+    file_path = os.path.abspath(__file__)
+    file_name = os.path.basename(file_path)
+    ctx.add_artifact_file(file_name, file_path)
     assert True
