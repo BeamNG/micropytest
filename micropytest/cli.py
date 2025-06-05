@@ -14,6 +14,8 @@ from .core import (
     TestStats,
     TIME_REPORT_CUTOFF,
 )
+from .types import TestResult
+
 
 def console_main():
     # Create a Rich console for output
@@ -92,7 +94,6 @@ def console_main():
         show_progress=show_progress,
         dry_run=args.dry_run,
     )
-    stats = TestStats.from_results(test_results)
 
     # If not quiet, we print the fancy ASCII summary and per-test lines
     if not args.quiet and len(test_results) > 1:
@@ -133,6 +134,22 @@ def console_main():
                     console.print(f"  Artifacts: {result.artifacts}")
                 console.print()
 
+    # Print the summary line
+    stats = print_summary(test_results, quiet=args.quiet, console=console)
+
+    # Exit with error code 1 if any tests failed or any error occurred
+    if stats.failed > 0 or stats.errors > 0:
+        sys.exit(1)
+    else:
+        sys.exit(0)
+
+
+def print_summary(test_results: list[TestResult], quiet=False, console=None) -> TestStats:
+    if console is None:
+        console = Console()
+
+    stats = TestStats.from_results(test_results)
+
     # Build the final summary with Rich formatting
     def plural(count, singular, plural_form=None):
         if plural_form is None:
@@ -170,14 +187,10 @@ def console_main():
     summary.append(Text(", ").join(parts))
 
     # Print the final summary
-    if args.quiet:
-        prefix = Text(f"microPyTest v{__version__}: {total_str} => ")
+    if quiet:
+        prefix = Text(f"microPyTest v{__version__}: ")
         console.print(prefix + summary)
     else:
         console.print(summary)
 
-    # Exit with error code 1 if any tests failed or any error occurred
-    if stats.failed > 0 or stats.errors > 0:
-        sys.exit(1)
-    else:
-        sys.exit(0)
+    return stats
