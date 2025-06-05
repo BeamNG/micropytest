@@ -95,8 +95,25 @@ def console_main():
         dry_run=args.dry_run,
     )
 
+    # Print report and summary line
+    print_report(test_results, console=console, quiet=args.quiet, verbose=args.verbose)
+    stats = print_summary(test_results, quiet=args.quiet, console=console)
+
+    # Exit with error code 1 if any tests failed or any error occurred
+    if stats.failed > 0 or stats.errors > 0:
+        sys.exit(1)
+    else:
+        sys.exit(0)
+
+
+def print_report(test_results: list[TestResult], console=None, quiet=False, verbose=False):
+    """Print detailed report."""
+    if console is None:
+        console = Console()
+    formatter = SimpleLogFormatter() if verbose else None
+
     # If not quiet, we print the fancy ASCII summary and per-test lines
-    if not args.quiet and len(test_results) > 1:
+    if not quiet and len(test_results) > 1:
         console.print(Panel.fit(r"""
          _____    _______        _
         |  __ \  |__   __|      | |
@@ -127,24 +144,16 @@ def console_main():
             # Ensure consistent width by using a fixed-width format string
             console.print(f"{test_key:50s} - {status_display:20}{duration_str}", highlight=False)
 
-            if args.verbose:
+            if verbose:
                 for record in result.logs:
-                    console.print(f"  {live_format.format(record)}")
+                    console.print(f"  {formatter.format(record)}")
                 if result.artifacts:
                     console.print(f"  Artifacts: {result.artifacts}")
                 console.print()
 
-    # Print the summary line
-    stats = print_summary(test_results, quiet=args.quiet, console=console)
-
-    # Exit with error code 1 if any tests failed or any error occurred
-    if stats.failed > 0 or stats.errors > 0:
-        sys.exit(1)
-    else:
-        sys.exit(0)
-
 
 def print_summary(test_results: list[TestResult], quiet=False, console=None) -> TestStats:
+    """Print summary line and return stats."""
     if console is None:
         console = Console()
 
