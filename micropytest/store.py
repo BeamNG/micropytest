@@ -16,6 +16,7 @@ from .types import TestStatus
 
 ArtifactValue = Union[JsonValue, bytes]
 TestRunStatus = Literal["pass", "fail", "skip", "queued", "running", "cancelled"]
+LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
 
 class TestDefinition(BaseModel):
@@ -118,7 +119,7 @@ class AddArtifactRequestData(BaseModel):
 
 class LogEntry(BaseModel):
     time: datetime
-    level: str
+    level: LogLevel
     message: str
 
     @staticmethod
@@ -172,7 +173,7 @@ class GetArtifactsResponseData(BaseModel):
 
 
 class GetLogsRequestData(BaseModel):
-    levels: list[str]
+    levels: list[LogLevel]
 
 
 class GetLogsResponseData(BaseModel):
@@ -450,7 +451,7 @@ class TestStore:
         response_data = GetArtifactsResponseData.model_validate(response.json())
         return {key: value.unwrap() for key, value in response_data.artifacts.items()}
 
-    def get_logs(self, run_id: int, level: Optional[Union[str, list[str]]] = None) -> list[LogEntry]:
+    def get_logs(self, run_id: int, level: Optional[Union[LogLevel, list[LogLevel]]] = None) -> list[LogEntry]:
         """Get logs of a test run.
 
         If level is None or an empty list, all logs are returned.
