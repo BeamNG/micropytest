@@ -32,10 +32,13 @@ def main():
             store.finish_test(test_run.run_id, result)
             test_results.append(result)
         except KeyboardInterrupt:
-            # test was cancelled on server side
-            pass
+            print("test was cancelled by user, continuing with next test")
     print_report(test_results)
     print_summary(test_results)
+    num_not_run = len(tests) - len(test_results)
+    if num_not_run > 0:
+        print(f"=> {num_not_run} tests were not run")
+    time.sleep(0.5)  # on Windows caught KeyboardInterrupt needs some time to recover (otherwise exit code is 130)
 
 
 if __name__ == "__main__":
