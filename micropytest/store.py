@@ -159,6 +159,10 @@ class FinishTestRequestData(BaseModel):
     finish_reason: str
 
 
+class CancelTestRequestData(BaseModel):
+    cancel: bool
+
+
 class GetTestRunsRequestData(BaseModel):
     test: TestDefinition
     min: Annotated[int, Field(ge=0)]
@@ -381,6 +385,13 @@ class TestStore:
             finish_reason=_to_finish_reason(result.exception),
         )
         url = f"{self.url}/runs/{run_id}/finish"
+        response = self._put(url, json=d)
+        response.raise_for_status()
+
+    def cancel_test(self, run_id: int) -> None:
+        """Cancel a test run."""
+        url = f"{self.url}/runs/{run_id}/cancel"
+        d = CancelTestRequestData(cancel=True)
         response = self._put(url, json=d)
         response.raise_for_status()
 
