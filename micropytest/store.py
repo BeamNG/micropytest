@@ -431,8 +431,8 @@ class TestStore:
         status: Optional[Union[str, list[str]]] = None,
         artifact_keys: bool = False,
     ) -> Optional[TestRun]:
-        """Get the last test run for a test, optionally filtered by status, for this branch and platform (and
-        group if self.group is set)."""
+        """Return the last test run for a test, optionally filtered by status, for this branch and platform (and
+        group if self.group is set), or None if no matching run exists."""
         runs = self.get_test_runs(test, order=-1, limit=1, status=status, artifact_keys=artifact_keys)
         if len(runs) == 0:
             return None
