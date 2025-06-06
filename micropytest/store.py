@@ -35,6 +35,19 @@ class TestGroupData(BaseModel):
     platform: str
 
 
+class NumLogs(BaseModel):
+    DEBUG: int
+    INFO: int
+    WARNING: int
+    ERROR: int
+    CRITICAL: int
+
+
+class ArtifactInfo(BaseModel):
+    type: Literal["json", "bytes"]
+    size: int
+
+
 class TestRunData(BaseModel):
     test: TestDefinition
     run_number: int
@@ -43,9 +56,9 @@ class TestRunData(BaseModel):
     exception: Optional[str]
     duration: Optional[float]
     group: TestGroupData
-    num_logs: int
+    num_logs: NumLogs
     num_artifacts: int
-    artifact_keys: Optional[list[str]]  # None means artifact keys were not requested
+    artifact_keys: Optional[dict[str, ArtifactInfo]]  # None means artifact keys were not requested
     queued_at: datetime
     started_at: Optional[datetime]
     finished_at: Optional[datetime]
@@ -200,9 +213,9 @@ class TestRun:
     exception: Optional[str]
     duration: Optional[float]
     group: TestGroupData
-    num_logs: int
+    num_logs: NumLogs
     num_artifacts: int
-    artifact_keys: Optional[list[str]]  # None means artifact keys were not requested
+    artifact_keys: Optional[dict[str, ArtifactInfo]]  # None means artifact keys were not requested
     queued_at: datetime
     started_at: Optional[datetime]
     finished_at: Optional[datetime]
