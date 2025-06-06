@@ -45,7 +45,7 @@ class NumLogs(BaseModel):
 
 class ArtifactInfo(BaseModel):
     type: Literal["json", "bytes"]
-    size: int
+    size: int  # size in bytes for bytes type or -1 for json type
 
 
 class TestRunData(BaseModel):
