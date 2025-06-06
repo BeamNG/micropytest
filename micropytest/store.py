@@ -395,6 +395,15 @@ class TestStore:
         response = self._put(url, json=d)
         response.raise_for_status()
 
+    def cancel_all(self) -> None:
+        """Cancel all test runs in the current group."""
+        if self.group is None:
+            raise ValueError("No group set")
+        url = f"{self.url}/groups/{self.group}/cancel"
+        d = CancelTestRequestData(cancel=True)
+        response = self._put(url, json=d)
+        response.raise_for_status()
+
     def get_test_runs(
         self,
         test: Test,
