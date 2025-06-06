@@ -148,9 +148,9 @@ class FinishTestRequestData(BaseModel):
 
 class GetTestRunsRequestData(BaseModel):
     test: TestDefinition
-    min: int
-    max: Optional[int]
-    limit: int
+    min: Annotated[int, Field(ge=0)]
+    max: Optional[Annotated[int, Field(ge=0)]]
+    limit: Annotated[int, Field(ge=0, le=100)]
     order: Literal[1, -1]
     status: list[str]
     group: list[int]
