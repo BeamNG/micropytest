@@ -202,6 +202,7 @@ python -m twine upload dist/micropytest-xxx.tar.gz
 Make sure to update the version number in `__init__.py` and `pyproject.toml` before building a new release.
 
 ## Changelog
+- **v0.14** – Add support for storing test results on a remote server using REST API, make core functions sync
 - **v0.13** – Make ctrl+c responsively abort tests, fix bugs, add VCS helper functions
 - **v0.12** – Improved type safety, allow detecting changes using VCS
 - **v0.11.1** – Add dry-run mode
