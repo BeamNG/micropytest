@@ -19,7 +19,7 @@ def test_vcs_helper_git(ctx):
 @tag('vcs', 'svn', 'integration')
 def test_vcs_helper_svn(ctx):
     """Run a test that dumps VCS information about a dummy SVN file."""
-    # Only run this test in CT, where subversion must be installed
+    # Only run this test in CI, where subversion must be installed
     if not os.environ.get("CI"):
         ctx.skip_test("Skipping test_vcs_helper_svn.")
 
