@@ -352,7 +352,8 @@ class SVNVCS(VCSInterface):
     def is_used(self, file_path) -> bool:
         """Check if SVN is used for the given file."""
         try:
-            result = subprocess.run(['svn', 'info', file_path], capture_output=True, text=True, check=False)
+            flags = self._get_flags()
+            result = subprocess.run(arg('svn', 'info', *flags, file_path), capture_output=True, text=True, check=False)
             if result.returncode == 0:
                 return True
         except FileNotFoundError:
@@ -362,8 +363,9 @@ class SVNVCS(VCSInterface):
     def get_file_creator(self, file_path):
         """Get the creator of a file in SVN."""
         try:
+            flags = self._get_flags()
             result = subprocess.run(
-                ['svn', 'log', '--xml', '--limit', '1', '--revision', '1:HEAD', file_path],
+                arg('svn', 'log', *flags, '--xml', '--limit', '1', '--revision', '1:HEAD', file_path),
                 capture_output=True, text=True, check=True
             )
 
@@ -390,8 +392,9 @@ class SVNVCS(VCSInterface):
     def get_last_modifier(self, file_path):
         """Get the last person who modified a file in SVN."""
         try:
+            flags = self._get_flags()
             result = subprocess.run(
-                ['svn', 'info', file_path],
+                arg('svn', 'info', *flags, file_path),
                 capture_output=True, text=True, check=True
             )
 
@@ -424,8 +427,9 @@ class SVNVCS(VCSInterface):
         """Get the author of a specific line in SVN."""
         try:
             # Get blame information
+            flags = self._get_flags()
             result = subprocess.run(
-                ['svn', 'blame', file_path],
+                arg('svn', 'blame', *flags, file_path),
                 capture_output=True, text=True, check=True
             )
 
@@ -439,7 +443,7 @@ class SVNVCS(VCSInterface):
 
                     # Get revision date
                     log_result = subprocess.run(
-                        ['svn', 'log', '-r', revision, file_path],
+                        arg('svn', 'log', *flags, '-r', revision, file_path),
                         capture_output=True, text=True, check=True
                     )
 
@@ -468,8 +472,9 @@ class SVNVCS(VCSInterface):
         """Get the commit message for a specific line in SVN."""
         try:
             # First get the revision for this line
+            flags = self._get_flags()
             blame_result = subprocess.run(
-                ['svn', 'blame', file_path],
+                arg('svn', 'blame', *flags, file_path),
                 capture_output=True, text=True, check=True
             )
 
@@ -480,7 +485,7 @@ class SVNVCS(VCSInterface):
 
                 # Now get the commit message
                 log_result = subprocess.run(
-                    ['svn', 'log', '-r', revision, file_path],
+                    arg('svn', 'log', *flags, '-r', revision, file_path),
                     capture_output=True, text=True, check=True
                 )
 
@@ -502,8 +507,9 @@ class SVNVCS(VCSInterface):
 
     def _get_repo_url(self, file_path):
         # get repo file url
+        flags = self._get_flags()
         url_result = subprocess.run(
-            ['svn', 'info', '--show-item', 'url', file_path],
+            arg('svn', 'info', *flags, '--show-item', 'url', file_path),
             capture_output=True, text=True, check=True
         )
         return url_result.stdout.strip()
@@ -513,11 +519,12 @@ class SVNVCS(VCSInterface):
         history: list[VCSHistoryEntry] = []
 
         try:
+            flags = self._get_flags()
             url = self._get_repo_url(file_path)
 
             # running this with url instead of working copy path also works correctly for directories
             result = subprocess.run(
-                ['svn', 'log', '--limit', str(limit), url],
+                arg('svn', 'log', *flags, '--limit', str(limit), url),
                 capture_output=True, text=True, check=True
             )
 
@@ -565,8 +572,9 @@ class SVNVCS(VCSInterface):
             url += '/'
 
         try:
+            flags = self._get_flags()
             result = subprocess.run(
-                ["svn", "log", "-v", "-r", revision],
+                arg("svn", "log", *flags, "-v", "-r", revision),
                 cwd=repo_path,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -613,7 +621,7 @@ class SVNVCS(VCSInterface):
                 elif action == "A":
                     # Use svn info to check whether it's a file
                     info_result = subprocess.run(
-                        ["svn", "info", f"{full_path}@{revision}"],
+                        arg("svn", "info", *flags, f"{full_path}@{revision}"),
                         cwd=repo_path,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
@@ -630,7 +638,7 @@ class SVNVCS(VCSInterface):
                     assert '\\' not in parent + name
 
                     ls_result = subprocess.run(
-                        ["svn", "ls", f"{parent}@{prev_revision}"],
+                        arg("svn", "ls", *flags, f"{parent}@{prev_revision}"),
                         cwd=repo_path,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
@@ -652,12 +660,24 @@ class SVNVCS(VCSInterface):
             raise VCSError(f"Path does not exist: {path}")
         if not os.path.isdir(path):
             path = os.path.dirname(path)
-        return subprocess.check_output(["svn", "info", "--show-item", "wc-root", path], cwd=path).decode("utf-8").strip()
+        flags = self._get_flags()
+        output = subprocess.check_output(arg("svn", "info", *flags, "--show-item", "wc-root", path), cwd=path)
+        return output.decode("utf-8").strip()
 
     def get_branch(self, repo_path: PathLike) -> str:
         """Get current branch name, given repo root directory."""
         url = self._get_repo_url(repo_path)
         return url.split('/')[-1]
+
+    def _get_credentials(self) -> list[str]:
+        username = os.environ.get("SVN_USERNAME", "")
+        password = os.environ.get("SVN_PASSWORD", "")
+        if username == "" or password == "":
+            return []
+        return ["--username", username, "--password", password]
+
+    def _get_flags(self) -> list[str]:
+        return self._get_credentials() + ["--non-interactive"]
 
 
 class VCSHelper:
@@ -677,3 +697,7 @@ class VCSHelper:
             if handler.is_used(path):
                 return handler
         return None
+
+
+def arg(*args):
+    return list(args)
