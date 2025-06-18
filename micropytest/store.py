@@ -27,7 +27,7 @@ class TestDefinition(BaseModel):
     args: str
 
 
-class TestGroupData(BaseModel):
+class TestJobData(BaseModel):
     id: int
     repository_name: str
     commit: str
@@ -55,7 +55,7 @@ class TestRunData(BaseModel):
     status: TestRunStatus
     exception: Optional[str]
     duration: Optional[float]
-    group: TestGroupData
+    job: TestJobData
     num_logs: NumLogs
     num_artifacts: int
     artifact_keys: Optional[dict[str, ArtifactInfo]]  # None means artifact keys were not requested
@@ -65,20 +65,20 @@ class TestRunData(BaseModel):
     finish_reason: Optional[str]
 
 
-class CreateGroupRequestData(BaseModel):
+class CreateJobRequestData(BaseModel):
     repository_name: str
     commit: str
     branch: str
     platform: str
 
 
-class CreateGroupResponseData(BaseModel):
-    group_id: int
+class CreateJobResponseData(BaseModel):
+    job_id: int
 
 
 class EnqueueRequestData(BaseModel):
     test: TestDefinition
-    group_id: int
+    job_id: int
 
 
 class EnqueueResponseData(BaseModel):
@@ -87,7 +87,7 @@ class EnqueueResponseData(BaseModel):
 
 
 class StartRequestData(BaseModel):
-    group_id: int
+    job_id: int
 
 
 class StartResponseData(BaseModel):
@@ -170,7 +170,7 @@ class GetTestRunsRequestData(BaseModel):
     limit: Annotated[int, Field(ge=0, le=100)]
     order: Literal[1, -1]
     status: list[str]
-    group: list[int]
+    job: list[int]
     branch: list[str]
     platform: list[str]
     commit: list[str]
@@ -216,7 +216,7 @@ class TestRun:
     status: TestRunStatus
     exception: Optional[str]
     duration: Optional[float]
-    group: TestGroupData
+    job: TestJobData
     num_logs: NumLogs
     num_artifacts: int
     artifact_keys: Optional[dict[str, ArtifactInfo]]  # None means artifact keys were not requested
@@ -264,14 +264,14 @@ class TestStore:
         headers: Optional[dict[str, str]] = None,
         repository: Optional[LocalRepository] = None,
         platform: Optional[str] = None,
-        group: Optional[int] = None,
+        job: Optional[int] = None,
         timeout: float = 10.0,
     ):
         self.url: str = url
         self.headers: dict[str, str] = headers or {}
         self.repository: LocalRepository = repository or LocalRepository.get()
         self.platform: str = platform or get_current_platform()
-        self.group: Optional[int] = group  # group ID for this test store
+        self.job: Optional[int] = job  # job ID for the set of tests to be run
         self.timeout: float = timeout
         self._test_alive_daemon = TestAliveDaemon(url)
         self._session = requests.Session()
@@ -304,7 +304,7 @@ class TestStore:
             status=test_run_data.status,
             exception=test_run_data.exception,
             duration=test_run_data.duration,
-            group=test_run_data.group,
+            job=test_run_data.job,
             num_logs=test_run_data.num_logs,
             num_artifacts=test_run_data.num_artifacts,
             artifact_keys=test_run_data.artifact_keys,
@@ -314,10 +314,10 @@ class TestStore:
             finish_reason=test_run_data.finish_reason,
         )
 
-    def create_group(self) -> int:
-        """Create a new group for this test store."""
-        url = f"{self.url}/groups"
-        d = CreateGroupRequestData(
+    def create_job(self) -> int:
+        """Create a new job for the set of tests to be run using this TestStore instance."""
+        url = f"{self.url}/jobs"
+        d = CreateJobRequestData(
             repository_name=self.repository.name,
             commit=self.repository.commit,
             branch=self.repository.branch,
@@ -325,15 +325,15 @@ class TestStore:
         )
         response = self._post(url, json=d)
         response.raise_for_status()
-        return CreateGroupResponseData.model_validate(response.json()).group_id
+        return CreateJobResponseData.model_validate(response.json()).job_id
 
     def enqueue_test(self, test: Test) -> EnqueueResponseData:
         """Add a test to the queue to be run later."""
-        if self.group is None:
-            self.group = self.create_group()
+        if self.job is None:
+            self.job = self.create_job()
         d = EnqueueRequestData(
             test=self.test_definition(test),
-            group_id=self.group,
+            job_id=self.job,
         )
         url = f"{self.url}/enqueue"
         response = self._post(url, json=d)
@@ -342,9 +342,9 @@ class TestStore:
 
     def start_test(self) -> Optional[TestRun]:
         """Get the next test from the queue to start execution (or None if there are no more tests to run)."""
-        # gets the next test matching the store's test group in the order of enqueueing
+        # gets the next test matching the store's test job in the order of enqueueing
         url = f"{self.url}/start"
-        d = StartRequestData(group_id=self.group)
+        d = StartRequestData(job_id=self.job)
         response = self._post(url, json=d)
         response.raise_for_status()
         response_data = StartResponseData.model_validate(response.json())
@@ -396,10 +396,10 @@ class TestStore:
         response.raise_for_status()
 
     def cancel_all(self) -> None:
-        """Cancel all test runs in the current group."""
-        if self.group is None:
-            raise ValueError("No group set")
-        url = f"{self.url}/groups/{self.group}/cancel"
+        """Cancel all test runs in the current job."""
+        if self.job is None:
+            raise ValueError("No job set")
+        url = f"{self.url}/jobs/{self.job}/cancel"
         d = CancelTestRequestData(cancel=True)
         response = self._put(url, json=d)
         response.raise_for_status()
@@ -413,7 +413,7 @@ class TestStore:
         limit: int = 100,
         order: Literal[1, -1] = 1,  # 1 for ascending, -1 for descending (by run number)
         status: Optional[Union[str, list[str]]] = None,
-        group: Optional[Union[int, list[int]]] = None,
+        job: Optional[Union[int, list[int]]] = None,
         branch: Optional[Union[str, list[str]]] = None,
         platform: Optional[Union[str, list[str]]] = None,
         commit: Optional[Union[str, list[str]]] = None,
@@ -421,11 +421,11 @@ class TestStore:
     ) -> list[TestRun]:
         """Get test runs from the server.
         
-        Parameters status, group, branch, platform and commit are used to filter test runs. If multiple values
+        Parameters status, job, branch, platform and commit are used to filter test runs. If multiple values
         are provided for a parameter the test run must match at least one of them. Empty list means no
         filtering for that parameter. None means filter by default values. Default values are:
         - status: ["pass", "fail"]
-        - group: self.group if set, otherwise no filtering
+        - job: self.job if set, otherwise no filtering
         - branch: self.repository.branch
         - platform: self.platform
         - commit: no filtering
@@ -446,7 +446,7 @@ class TestStore:
             limit=limit,
             order=order,
             status=_to_list(status, ["pass", "fail"]),
-            group=_to_list(group, [self.group] if self.group is not None else []),
+            job=_to_list(job, [self.job] if self.job is not None else []),
             branch=_to_list(branch, [self.repository.branch]),
             platform=_to_list(platform, [self.platform]),
             commit=_to_list(commit, []),
@@ -465,7 +465,7 @@ class TestStore:
         artifact_keys: bool = False,
     ) -> Optional[TestRun]:
         """Return the last test run for a test, optionally filtered by status, for this branch and platform (and
-        group if self.group is set), or None if no matching run exists."""
+        job if self.job is set), or None if no matching run exists."""
         runs = self.get_test_runs(test, order=-1, limit=1, status=status, artifact_keys=artifact_keys)
         if len(runs) == 0:
             return None
