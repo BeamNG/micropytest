@@ -1,22 +1,32 @@
-"""Example using TestStore."""
+"""Run tests using TestStore to save test results on server. This will:
+- Discover tests
+- Enqueue them on server
+- Pick up tests one by one, run them and store results on server
+"""
+import os
 import time
 from micropytest.store import TestStore, KeepAlive, TestContextStored
 from micropytest.core import discover_tests, run_single_test
 from micropytest.cli import print_report, print_summary
 
+API_URL = os.environ.get("API_URL", "http://localhost:8000/testframework/api")
+TESTS_PATH = os.environ.get("TESTS_PATH", ".")
+
 
 def main():
-    store = TestStore(url="http://localhost:8000/testframework/api")
+    print(f"Set up test store...")
+    store = TestStore(url=API_URL)
     discover_ctx = TestContextStored(store)
-    tests_path = "."
 
     # Discover tests and enqueue them
     print("Discovering tests...")
-    tests = discover_tests(discover_ctx, tests_path)
+    tests = discover_tests(discover_ctx, TESTS_PATH)
+    print(f"Discovered {len(tests)} tests")
     t = time.time()
     for test in tests:
         store.enqueue_test(test)
     print(f"Enqueued {len(tests)} tests in {time.time() - t:.2f} seconds")
+    print(f"Job ID: {store.job}")
 
     # Start tests in queue
     print("Running tests...")
