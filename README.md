@@ -202,6 +202,7 @@ python -m twine upload dist/micropytest-xxx.tar.gz
 Make sure to update the version number in `__init__.py` and `pyproject.toml` before building a new release.
 
 ## Changelog
+- **v0.17** – Improve SVN helper
 - **v0.16** – Improve test store terminology
 - **v0.15** – Add support for environment variables for SVN credentials
 - **v0.14** – Add support for storing test results on a remote server using REST API, make core functions sync
