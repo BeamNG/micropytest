@@ -353,7 +353,9 @@ class SVNVCS(VCSInterface):
         """Check if SVN is used for the given file."""
         try:
             flags = self._get_flags()
-            result = subprocess.run(arg('svn', 'info', *flags, file_path), capture_output=True, text=True, check=False)
+            file_url = self._get_file_url(file_path)
+            rev = self._get_working_copy_revision(file_path)
+            result = subprocess.run(arg('svn', 'info', *flags, "-r", rev, file_url), capture_output=True, text=True, check=False)
             if result.returncode == 0:
                 return True
         except FileNotFoundError:
@@ -364,8 +366,9 @@ class SVNVCS(VCSInterface):
         """Get the creator of a file in SVN."""
         try:
             flags = self._get_flags()
+            file_url = self._get_file_url(file_path)
             result = subprocess.run(
-                arg('svn', 'log', *flags, '--xml', '--limit', '1', '--revision', '1:HEAD', file_path),
+                arg('svn', 'log', *flags, '--xml', '--limit', '1', '--revision', '1:HEAD', file_url),
                 capture_output=True, text=True, check=True
             )
 
@@ -393,8 +396,10 @@ class SVNVCS(VCSInterface):
         """Get the last person who modified a file in SVN."""
         try:
             flags = self._get_flags()
+            file_url = self._get_file_url(file_path)
+            rev = self._get_working_copy_revision(file_path)
             result = subprocess.run(
-                arg('svn', 'info', *flags, file_path),
+                arg('svn', 'info', *flags, "-r", rev, file_url),
                 capture_output=True, text=True, check=True
             )
 
@@ -428,8 +433,10 @@ class SVNVCS(VCSInterface):
         try:
             # Get blame information
             flags = self._get_flags()
+            file_url = self._get_file_url(file_path)
+            rev = self._get_working_copy_revision(file_path)
             result = subprocess.run(
-                arg('svn', 'blame', *flags, file_path),
+                arg('svn', 'blame', *flags, "-r", rev, file_url),
                 capture_output=True, text=True, check=True
             )
 
@@ -443,7 +450,7 @@ class SVNVCS(VCSInterface):
 
                     # Get revision date
                     log_result = subprocess.run(
-                        arg('svn', 'log', *flags, '-r', revision, file_path),
+                        arg('svn', 'log', *flags, '-r', revision, file_url),
                         capture_output=True, text=True, check=True
                     )
 
@@ -473,8 +480,10 @@ class SVNVCS(VCSInterface):
         try:
             # First get the revision for this line
             flags = self._get_flags()
+            file_url = self._get_file_url(file_path)
+            rev = self._get_working_copy_revision(file_path)
             blame_result = subprocess.run(
-                arg('svn', 'blame', *flags, file_path),
+                arg('svn', 'blame', *flags, "-r", rev, file_url),
                 capture_output=True, text=True, check=True
             )
 
@@ -485,7 +494,7 @@ class SVNVCS(VCSInterface):
 
                 # Now get the commit message
                 log_result = subprocess.run(
-                    arg('svn', 'log', *flags, '-r', revision, file_path),
+                    arg('svn', 'log', *flags, '-r', revision, file_url),
                     capture_output=True, text=True, check=True
                 )
 
@@ -508,8 +517,31 @@ class SVNVCS(VCSInterface):
     def _get_repo_url(self, file_path):
         # get repo file url
         flags = self._get_flags()
+        repo_root = self.get_repo_root(file_path)
         url_result = subprocess.run(
-            arg('svn', 'info', *flags, '--show-item', 'url', file_path),
+            arg('svn', 'info', *flags, '--show-item', 'url', repo_root),
+            capture_output=True, text=True, check=True
+        )
+        return url_result.stdout.strip()
+    
+    def _get_file_url(self, file_path):
+        abs_path = os.path.abspath(file_path)
+        repo_root = self.get_repo_root(file_path)
+        rel_path = os.path.relpath(abs_path, repo_root).replace('\\', '/')
+        url = self._get_repo_url(file_path)
+        if not url.endswith('/'):
+            url += '/'
+        if rel_path.startswith('./'):
+            rel_path = rel_path[2:]
+        if rel_path == '.':
+            rel_path = ''
+        return url + rel_path
+    
+    def _get_working_copy_revision(self, file_path):
+        flags = self._get_flags()
+        repo_root = self.get_repo_root(file_path)
+        url_result = subprocess.run(
+            arg('svn', 'info', *flags, '--show-item', 'revision', repo_root),
             capture_output=True, text=True, check=True
         )
         return url_result.stdout.strip()
@@ -520,7 +552,7 @@ class SVNVCS(VCSInterface):
 
         try:
             flags = self._get_flags()
-            url = self._get_repo_url(file_path)
+            url = self._get_file_url(file_path)
 
             # running this with url instead of working copy path also works correctly for directories
             result = subprocess.run(
@@ -656,13 +688,26 @@ class SVNVCS(VCSInterface):
         """Get the root directory of the repository, given any path inside the repository."""
         # get root of the working copy
         path = os.path.abspath(str(path))
+        original_path = path
         if not os.path.exists(path):
             raise VCSError(f"Path does not exist: {path}")
         if not os.path.isdir(path):
             path = os.path.dirname(path)
         flags = self._get_flags()
-        output = subprocess.check_output(arg("svn", "info", *flags, "--show-item", "wc-root", path), cwd=path)
-        return output.decode("utf-8").strip()
+        is_root = False
+        while True:
+            try:
+                output = subprocess.check_output(
+                    arg("svn", "info", *flags, "--show-item", "wc-root", path), cwd=path, stderr=subprocess.PIPE
+                )
+                return output.decode("utf-8").strip()
+            except subprocess.CalledProcessError:
+                if is_root:
+                    raise VCSError(f"Could not find SVN root for {original_path}")
+                # try parent directory
+                path = os.path.dirname(path)
+                if path == os.path.dirname(path):
+                    is_root = True
 
     def get_branch(self, repo_path: PathLike) -> str:
         """Get current branch name, given repo root directory."""
