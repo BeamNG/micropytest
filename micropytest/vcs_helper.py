@@ -358,8 +358,8 @@ class SVNVCS(VCSInterface):
             result = subprocess.run(arg('svn', 'info', *flags, "-r", rev, file_url), capture_output=True, text=True, check=False)
             if result.returncode == 0:
                 return True
-        except FileNotFoundError:
-            pass  # SVN command not found
+        except (FileNotFoundError, subprocess.CalledProcessError, VCSError):
+            pass
         return False
 
     def get_file_creator(self, file_path):
