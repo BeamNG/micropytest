@@ -6,7 +6,7 @@
 import os
 import time
 from micropytest.store import TestStore, KeepAlive, TestContextStored
-from micropytest.core import discover_tests, run_single_test
+from micropytest.core import discover_tests, run_single_test, setup_logging
 from micropytest.cli import print_report, print_summary
 
 API_URL = os.environ.get("API_URL", "http://localhost:8000/testframework/api")
@@ -17,6 +17,7 @@ def main():
     print(f"Set up test store...")
     store = TestStore(url=API_URL)
     discover_ctx = TestContextStored(store)
+    setup_logging()
 
     # Discover tests and enqueue them
     print("Discovering tests...")
@@ -38,6 +39,7 @@ def main():
         ctx = TestContextStored(store, test_run.run_id)
         try:
             with KeepAlive(store, test_run.run_id):
+                print(f"Running test: {test_run.test.short_key_with_args}")
                 result = run_single_test(test_run.test, ctx)
             store.finish_test(test_run.run_id, result)
             test_results.append(result)

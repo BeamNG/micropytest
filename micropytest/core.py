@@ -468,3 +468,19 @@ def format_exception(exception: Exception) -> str:
     """Format exception using '{type}: {message}\\n{traceback}'."""
     tb_str = ''.join(traceback.format_exception(type(exception), exception, exception.__traceback__))
     return f"{type(exception).__name__}: {exception}\n{tb_str}"
+
+
+def setup_logging(quiet=False, verbose=False):
+    # Create our formatter and handler
+    root_logger = logging.getLogger()
+    live_format = SimpleLogFormatter()
+    live_handler = create_live_console_handler(formatter=live_format)
+
+    # If quiet => set level above CRITICAL (so no logs)
+    if quiet:
+        root_logger.setLevel(logging.CRITICAL + 1)
+    else:
+        level = logging.DEBUG if verbose else logging.INFO
+        root_logger.setLevel(level)
+        live_handler.setLevel(level)
+        root_logger.addHandler(live_handler)

@@ -8,7 +8,7 @@ from rich.panel import Panel
 
 from . import __version__
 from .core import (
-    create_live_console_handler,
+    setup_logging,
     SimpleLogFormatter,
     run_tests,
     TestStats,
@@ -57,21 +57,8 @@ def console_main():
     if args.verbose and args.quiet:
         parser.error("Cannot use both -v and -q together.")
 
-    # root logger
-    root_logger = logging.getLogger()
-
-    # Create our formatter and handler
-    live_format = SimpleLogFormatter()
-    live_handler = create_live_console_handler(formatter=live_format)
-
-    # If quiet => set level above CRITICAL (so no logs)
-    if args.quiet:
-        root_logger.setLevel(logging.CRITICAL + 1)
-    else:
-        level = logging.DEBUG if args.verbose else logging.INFO
-        root_logger.setLevel(level)
-        live_handler.setLevel(level)
-        root_logger.addHandler(live_handler)
+    # Logging
+    setup_logging(quiet=args.quiet, verbose=args.verbose)
 
     # Only show estimates if not quiet
     show_estimates = not args.quiet
