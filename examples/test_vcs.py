@@ -235,6 +235,7 @@ class DummySVNRepo:
             subprocess.check_call(['svn', 'update', os.path.join(self.working_copy_path, 'subdir')])
             subprocess.check_call(['svn', 'delete', os.path.join(self.working_copy_path, 'subdir'), '--force'])
             subprocess.check_call(['svn', 'commit', self.working_copy_path, '-m', 'Fourth commit'])
+            subprocess.check_call(['svn', 'update', self.working_copy_path])
 
         except Exception as e:
             self.cleanup()
