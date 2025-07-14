@@ -101,7 +101,7 @@ class Command:
             raise RuntimeError("Process not started")
         try:
             code = self._wait_internal(timeout=timeout)
-        except KeyboardInterrupt as e:
+        except (KeyboardInterrupt, subprocess.TimeoutExpired) as e:
             self.terminate()
             raise e
         finally:
