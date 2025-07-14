@@ -15,7 +15,8 @@ requires-python = ">=3.9"
 dependencies = [
     "rich>=10.0.0",
     "pydantic>=2.11",
-    "requests>=2.32"
+    "requests>=2.32",
+    "psutil>=7.0.0",
 ]
 classifiers = [
   "Development Status :: 3 - Alpha",

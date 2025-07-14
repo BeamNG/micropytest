@@ -3,6 +3,7 @@ import threading
 import os
 import time
 from typing import List, Dict, Optional, Callable, Union
+import psutil
 
 class Command:
     """
@@ -89,11 +90,19 @@ class Command:
     def terminate(self):
         """Terminate the process."""
         if self.process and self.process.poll() is None:
+            self._terminate_children()
             self.process.terminate()
             try:
                 self.process.wait(timeout=2)
             except subprocess.TimeoutExpired:
                 self.process.kill()
+
+    def _terminate_children(self):
+        """Terminate all child processes."""
+        parent = psutil.Process(self.process.pid)
+        children = parent.children(recursive=True)
+        for child in children:
+            child.kill()
 
     def wait(self, timeout=None):
         """Wait for the process to complete and return exit code."""
