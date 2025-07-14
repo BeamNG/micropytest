@@ -202,6 +202,7 @@ python -m twine upload dist/micropytest-xxx.tar.gz
 Make sure to update the version number in `__init__.py` and `pyproject.toml` before building a new release.
 
 ## Changelog
+- **v0.17.5** – Improve error handling in test store
 - **v0.17.4** – Terminate also child processes in Command.terminate()
 - **v0.17.3** – Bugfix in Command.wait()
 - **v0.17.2** – Refactor logging
