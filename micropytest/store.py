@@ -9,6 +9,7 @@ import logging
 from pydantic import BaseModel, JsonValue, Base64Bytes, Field
 from typing import Literal, Annotated, Any
 import requests
+from requests.exceptions import HTTPError
 from .types import Test, Args, TestResult, TestAttributes
 from .core import SkipTest, load_test_module_by_path, TestContext, format_exception
 from .vcs_helper import VCSHelper
@@ -207,6 +208,16 @@ class GetTestsResponseData(BaseModel):
     test_definitions: list[TestDefinition]
 
 
+class ErrorData(BaseModel):
+    type: str
+    message: str
+    traceback: list[str]
+
+
+class ErrorResponseData(BaseModel):
+    error: ErrorData
+
+
 @dataclass
 class TestRun:
     # Note: this differs from the TestRunData class only in the data type of the test field
@@ -324,7 +335,7 @@ class TestStore:
             platform=self.platform,
         )
         response = self._post(url, json=d)
-        response.raise_for_status()
+        self._raise_for_status(response, url)
         return CreateJobResponseData.model_validate(response.json()).job_id
 
     def enqueue_test(self, test: Test) -> EnqueueResponseData:
@@ -337,7 +348,7 @@ class TestStore:
         )
         url = f"{self.url}/enqueue"
         response = self._post(url, json=d)
-        response.raise_for_status()
+        self._raise_for_status(response, url)
         return EnqueueResponseData.model_validate(response.json())
 
     def start_test(self) -> Optional[TestRun]:
@@ -346,7 +357,7 @@ class TestStore:
         url = f"{self.url}/start"
         d = StartRequestData(job_id=self.job)
         response = self._post(url, json=d)
-        response.raise_for_status()
+        self._raise_for_status(response, url)
         response_data = StartResponseData.model_validate(response.json())
         if response_data.test_run is None:
             return None
@@ -361,7 +372,7 @@ class TestStore:
             value=TypedBytes.wrap(value) if isinstance(value, bytes) else TypedJson.wrap(value),
         )
         response = self._post(url, d)
-        response.raise_for_status()
+        self._raise_for_status(response, url)
 
     def add_logs(self, run_id: int, logs: list[logging.LogRecord]) -> None:
         """Add logs to a running test."""
@@ -371,7 +382,7 @@ class TestStore:
             logs=[LogEntry.from_record(record) for record in logs],
         )
         response = self._post(url, json=d)
-        response.raise_for_status()
+        self._raise_for_status(response, url)
 
     def finish_test(self, run_id: int, result: TestResult) -> None:
         """Finish a test run, reporting the result.
@@ -386,14 +397,14 @@ class TestStore:
         )
         url = f"{self.url}/runs/{run_id}/finish"
         response = self._put(url, json=d)
-        response.raise_for_status()
+        self._raise_for_status(response, url)
 
     def cancel_test(self, run_id: int) -> None:
         """Cancel a test run."""
         url = f"{self.url}/runs/{run_id}/cancel"
         d = CancelTestRequestData(cancel=True)
         response = self._put(url, json=d)
-        response.raise_for_status()
+        self._raise_for_status(response, url)
 
     def cancel_all(self) -> None:
         """Cancel all test runs in the current job."""
@@ -402,7 +413,7 @@ class TestStore:
         url = f"{self.url}/jobs/{self.job}/cancel"
         d = CancelTestRequestData(cancel=True)
         response = self._put(url, json=d)
-        response.raise_for_status()
+        self._raise_for_status(response, url)
 
     def get_test_runs(
         self,
@@ -454,7 +465,7 @@ class TestStore:
         )
         url = f"{self.url}/runs/get"
         response = self._post(url, json=d)
-        response.raise_for_status()
+        self._raise_for_status(response, url)
         response_data = GetTestRunsResponseData.model_validate(response.json())
         return [self.to_test_run(run) for run in response_data.test_runs]
 
@@ -480,7 +491,7 @@ class TestStore:
         d = GetArtifactsRequestData(keys=keys)
         url = f"{self.url}/runs/{run_id}/artifacts/get"
         response = self._post(url, json=d)
-        response.raise_for_status()
+        self._raise_for_status(response, url)
         response_data = GetArtifactsResponseData.model_validate(response.json())
         return {key: value.unwrap() for key, value in response_data.artifacts.items()}
 
@@ -493,7 +504,7 @@ class TestStore:
         d = GetLogsRequestData(levels=levels)
         url = f"{self.url}/runs/{run_id}/logs/get"
         response = self._post(url, json=d)
-        response.raise_for_status()
+        self._raise_for_status(response, url)
         response_data = GetLogsResponseData.model_validate(response.json())
         return response_data.logs
 
@@ -506,7 +517,7 @@ class TestStore:
         )
         url = f"{self.url}/tests/get"
         response = self._post(url, json=d)
-        response.raise_for_status()
+        self._raise_for_status(response, url)
         response_data = GetTestsResponseData.model_validate(response.json())
         return [self.to_test(td) for td in response_data.test_definitions]
 
@@ -526,6 +537,28 @@ class TestStore:
 
     def _get(self, url: str) -> requests.Response:
         return self._request("GET", url, json=None)
+
+    def _raise_for_status(self, response: requests.Response, url: str):
+        if not response.ok:
+            try:
+                error_data = ErrorResponseData.model_validate(response.json())
+            except Exception:
+                error_data = None
+            msg = f"HTTP error (status code {response.status_code} for {response.request.method} {url}):\n"
+            if error_data is None:
+                msg += f"- Response text: {response.text}"
+            else:
+                info = error_data.error
+                msg += "\n".join([
+                    f"- Type: {info.type}",
+                    f"- Message: {info.message}",
+                ])
+                if len(info.traceback) > 0:
+                    msg += "\n" + "\n".join([
+                        f"- Traceback:",
+                        *(f"  - {line}" for line in info.traceback),
+                    ])
+            raise HTTPError(msg, response=response)
 
 
 class DisableLogging:
