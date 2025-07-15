@@ -110,7 +110,7 @@ class Command:
             raise RuntimeError("Process not started")
         try:
             code = self._wait_internal(timeout=timeout)
-        except (KeyboardInterrupt, subprocess.TimeoutExpired) as e:
+        except BaseException as e:
             self.terminate()
             raise e
         finally:
@@ -139,7 +139,12 @@ class Command:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.wait()
+        if exc_type is None:
+            self.wait()
+        else:
+            self.terminate()
+            self._stdout_thread.join()
+            self._stderr_thread.join()
 
 
 # Simple helper for use with microPyTest
