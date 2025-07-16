@@ -14,7 +14,7 @@ def test_cmdline_parser(ctx):
     args, _ = parser.parse_known_args()
     
     # Log the parsed arguments
-    ctx.info(f"==== Parsed arguments:")
+    ctx.info("==== Parsed arguments:")
     for key, value in vars(args).items():
         ctx.info(f"  {key}: {value}")
 
@@ -33,7 +33,7 @@ def test_with_ctx_args(ctx):
     args, _ = parser.parse_known_args()
     
     # Log the parsed arguments
-    ctx.debug(f"Parsed arguments:")
+    ctx.debug("Parsed arguments:")
     for key, value in vars(args).items():
         ctx.debug(f"  {key}: {value}")
     
@@ -80,7 +80,7 @@ def test_file_operations(ctx):
     args = parser.parse_args(cli_args)
     
     # Log the parsed arguments
-    ctx.debug(f"File operation with arguments:")
+    ctx.debug("File operation with arguments:")
     for key, value in vars(args).items():
         ctx.debug(f"  {key}: {value}")
     
