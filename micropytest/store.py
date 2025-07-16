@@ -8,6 +8,8 @@ import subprocess
 import logging
 from pydantic import BaseModel, JsonValue, Base64Bytes, Field
 from typing import Literal, Annotated, Any
+import threading
+import _thread
 import requests
 from requests.exceptions import HTTPError
 from .types import Test, Args, TestResult, TestAttributes
@@ -650,13 +652,21 @@ class TestAliveDaemon:
         self.proc = subprocess.Popen(
             [sys.executable, daemon_file, api_endpoint],
             stdin=subprocess.PIPE,
-            stdout=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
             bufsize=1,
             universal_newlines=True,
-            close_fds=(os.name != 'nt'),
-            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0,
         )
+        self.thread = threading.Thread(target=self._read_child_output, daemon=True)
+        self.thread.start()
+
+    def _read_child_output(self):
+        """Monitor child's stdout for cancel signal"""
+        for line in self.proc.stdout:
+            line = line.strip()
+            if line == "cancel":
+                # Trigger KeyboardInterrupt in main thread
+                _thread.interrupt_main()
 
     def _write(self, line: str):
         if self.proc.poll() is not None:
@@ -674,6 +684,7 @@ class TestAliveDaemon:
         # closing stdin will cause the child process to exit
         self.proc.stdin.close()
         self.proc.wait()  # wait for child to actually exit
+        self.thread.join()
 
     def __del__(self):
         self.close()
