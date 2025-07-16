@@ -50,7 +50,6 @@ def main():
     num_not_run = len(tests) - len(test_results)
     if num_not_run > 0:
         print(f"=> {num_not_run} tests were not run")
-    time.sleep(0.5)  # on Windows caught KeyboardInterrupt needs some time to recover (otherwise exit code is 130)
 
 
 if __name__ == "__main__":
