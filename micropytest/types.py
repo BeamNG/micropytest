@@ -16,6 +16,15 @@ class TestAttributes:
     function: callable
     tags: set[str]
 
+    def with_args(self, *args, **kwargs) -> "Test":
+        return Test(
+            file=self.file,
+            name=self.name,
+            function=self.function,
+            tags=self.tags,
+            args=Args(*args, **kwargs),
+        )
+
 
 @dataclass
 class Test:
