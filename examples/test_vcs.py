@@ -173,7 +173,7 @@ def vcs_helper_function(ctx, file_path):
                 assert isinstance(line_author, VCSInfo)
                 ctx.info(f"    Author: {line_author.name}")
                 ctx.info(f"    Last modified: {line_author.date}")
-                line_analysis[line_num] = asdict(line_author)
+                line_analysis[str(line_num)] = asdict(line_author)
             except VCSError as e:
                 ctx.error(f"    {e}")
 
