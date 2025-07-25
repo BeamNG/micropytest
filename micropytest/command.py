@@ -10,13 +10,22 @@ class Command:
     A simple command executor with stdout/stderr callbacks and output collection.
     """
 
-    def __init__(self, cmd: Union[str, List[str]], cwd: Optional[str] = None, env: Optional[Dict[str, str]] = None):
+    def __init__(
+        self,
+        cmd: Union[str, List[str]],
+        cwd: Optional[str] = None,
+        env: Optional[Dict[str, str]] = None,
+        stdout_callback: Optional[Callable] = None,  # only used with context manager
+        stderr_callback: Optional[Callable] = None,  # only used with context manager
+        timeout: Optional[float] = None,             # only used with context manager
+    ):
         self.cmd = cmd
         self.cwd = cwd
         self.env = env or os.environ.copy()
         self.process = None
-        self.stdout_callback = None
-        self.stderr_callback = None
+        self.stdout_callback = stdout_callback
+        self.stderr_callback = stderr_callback
+        self.timeout = timeout
         self._stdout_thread = None
         self._stderr_thread = None
         self.stdout_lines = []
@@ -40,8 +49,6 @@ class Command:
             stdout_callback: Function called for each line of stdout
             stderr_callback: Function called for each line of stderr
         """
-        self.stdout_callback = stdout_callback
-        self.stderr_callback = stderr_callback
         self.stdout_lines = []
         self.stderr_lines = []
 
@@ -58,14 +65,14 @@ class Command:
 
         self._stdout_thread = threading.Thread(
             target=self._read_stream,
-            args=(self.process.stdout, self.stdout_callback, self.stdout_lines)
+            args=(self.process.stdout, stdout_callback, self.stdout_lines)
         )
         self._stdout_thread.daemon = True
         self._stdout_thread.start()
 
         self._stderr_thread = threading.Thread(
             target=self._read_stream,
-            args=(self.process.stderr, self.stderr_callback, self.stderr_lines)
+            args=(self.process.stderr, stderr_callback, self.stderr_lines)
         )
         self._stderr_thread.daemon = True
         self._stderr_thread.start()
@@ -135,12 +142,12 @@ class Command:
 
     def __enter__(self):
         if not self.process:
-            self.run()
+            self.run(stdout_callback=self.stdout_callback, stderr_callback=self.stderr_callback)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_type is None:
-            self.wait()
+            self.wait(timeout=self.timeout)
         else:
             self.terminate()
             self._stdout_thread.join()
