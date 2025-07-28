@@ -553,10 +553,11 @@ class SVNVCS(VCSInterface):
         try:
             flags = self._get_flags()
             url = self._get_file_url(file_path)
+            rev = self._get_working_copy_revision(file_path)
 
             # running this with url instead of working copy path also works correctly for directories
             result = subprocess.run(
-                arg('svn', 'log', *flags, '--limit', str(limit), url),
+                arg('svn', 'log', *flags, '--limit', str(limit), '-r', f'{rev}:1', url),
                 capture_output=True, text=True, check=True
             )
 
