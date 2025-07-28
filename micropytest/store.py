@@ -10,6 +10,7 @@ from pydantic import BaseModel, JsonValue, Base64Bytes, Field
 from typing import Literal, Annotated, Any
 import threading
 import _thread
+from time import sleep
 import requests
 from requests.exceptions import HTTPError
 from .types import Test, Args, TestResult, TestAttributes
@@ -288,6 +289,9 @@ class TestStore:
         self.timeout: float = timeout
         self._test_alive_daemon = TestAliveDaemon(url)
         self._session = requests.Session()
+        self._session_lock = threading.Lock()
+        self._artifact_transmitter = AsyncArtifactTransmitter(self, transmit_interval=0.0)
+        self._log_transmitter = AsyncLogTransmitter(self, transmit_interval=5.0)
 
     def test_definition(self, test: Test) -> TestDefinition:
         return TestDefinition(
@@ -386,11 +390,21 @@ class TestStore:
         response = self._post(url, json=d)
         self._raise_for_status(response, url)
 
+    def push_artifact(self, run_id: int, key: str, value: ArtifactValue):
+        """Push an artifact to be transmitted asynchronously."""
+        self._artifact_transmitter.push(run_id, (key, value))
+
+    def push_log(self, run_id: int, log: logging.LogRecord):
+        """Push a log to be transmitted asynchronously."""
+        self._log_transmitter.push(run_id, log)
+
     def finish_test(self, run_id: int, result: TestResult) -> None:
         """Finish a test run, reporting the result.
 
         This does not include artifacts and logs, which are reported separately during the test is running.
         """
+        self._artifact_transmitter.finish()
+        self._log_transmitter.finish()
         d = FinishTestRequestData(
             status=result.status,
             exception=format_exception(result.exception) if result.exception is not None else None,
@@ -528,7 +542,8 @@ class TestStore:
         # We need to disable logging during the request is made to prevent infinite recursion (posting request logs
         # to the server, for example if the session pool is full)
         with DisableLogging():
-            res = self._session.request(method, url, json=json_data, headers=self.headers, timeout=self.timeout)
+            with self._session_lock:
+                res = self._session.request(method, url, json=json_data, headers=self.headers, timeout=self.timeout)
         return res
 
     def _post(self, url: str, json: Optional[BaseModel] = None) -> requests.Response:
@@ -581,6 +596,87 @@ class DisableLogging:
             logger.setLevel(level)
 
 
+class AsyncTransmitter:
+    """Transmits items to the server asynchronously."""
+    def __init__(self, store: 'TestStore', transmit_interval: float = 5.0):
+        self._store: TestStore = store
+        self._transmit_interval = transmit_interval
+        self._pending_items: list[Any] = []
+        self._lock = threading.Lock()
+        self._current_run_id: Optional[int] = None
+        self._finish = False
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+
+    def push(self, run_id: int, item: Any):
+        """Push an item to be transmitted (non-blocking call that returns immediately)."""
+        with self._lock:
+            if self._is_ready():
+                self._current_run_id = run_id
+            if self._current_run_id != run_id:
+                name = self.__class__.__name__
+                msg = f"{name}: Cannot push item for run {run_id} while current run is {self._current_run_id}"
+                raise RuntimeError(msg)
+            self._pending_items.append(item)
+
+    def finish(self):
+        """Send all pending items to the server (blocks until all items were sent) and finishes current run."""
+        with self._lock:
+            self._finish = True
+        while True:
+            with self._lock:
+                if self._is_ready():
+                    break
+            sleep(0.05)
+        with self._lock:
+            self._finish = False
+
+    def _is_ready(self) -> bool:
+        """Ready to accept items for a new run."""
+        return self._current_run_id is None and len(self._pending_items) == 0
+
+    def _run(self):
+        slept = 0.0
+        sleep_interval = 0.05
+        transmit_interval = self._transmit_interval
+        while True:
+            with self._lock:
+                finish = self._finish
+            if slept >= transmit_interval or finish:
+                slept = 0.0
+                with self._lock:
+                    current_run_id = self._current_run_id
+                    _pending_items = self._pending_items.copy()
+                if current_run_id is not None and len(_pending_items) > 0:
+                    self._transmit(current_run_id, _pending_items)
+                with self._lock:
+                    self._pending_items = []
+                    if finish:
+                        self._current_run_id = None
+            sleep(sleep_interval)
+            slept += sleep_interval
+
+    def _transmit(self, run_id: int, items: list[Any]):
+        """Transmit items to the server."""
+        raise NotImplementedError("Subclass must implement _transmit method")
+
+
+class AsyncLogTransmitter(AsyncTransmitter):
+    """Transmits logs to the server asynchronously."""
+    def _transmit(self, run_id: int, items: list[logging.LogRecord]):
+        max_items = 1000
+        for i in range(0, len(items), max_items):
+            items_batch = items[i:i+max_items]
+            self._store.add_logs(run_id, items_batch)
+
+
+class AsyncArtifactTransmitter(AsyncTransmitter):
+    """Transmits artifacts to the server asynchronously."""
+    def _transmit(self, run_id: int, items: list[tuple[str, ArtifactValue]]):
+        for key, value in items:
+            self._store.add_artifact(run_id, key, value)
+
+
 class TestContextStored(TestContext):
     """A test context that stores artifacts and logs in the test store."""
     def __init__(self, store: TestStore, run_id: Optional[int] = None):
@@ -590,11 +686,11 @@ class TestContextStored(TestContext):
 
     def add_artifact(self, key: str, value: Any):
         super().add_artifact(key, value)
-        self.store.add_artifact(self.run_id, key, value)
+        self.store.push_artifact(self.run_id, key, value)
 
     def add_log(self, record: logging.LogRecord):
         super().add_log(record)
-        self.store.add_logs(self.run_id, [record])
+        self.store.push_log(self.run_id, record)
 
 
 def _to_list(value, default):
