@@ -202,6 +202,7 @@ python -m twine upload dist/micropytest-xxx.tar.gz
 Make sure to update the version number in `__init__.py` and `pyproject.toml` before building a new release.
 
 ## Changelog
+- **v0.18.2** – Fix error handling, fix bug in SVN helper
 - **v0.18.1** – Transmit logs and artifacts asynchronously for improved performance
 - **v0.18.0** – Allow passing Command callbacks and timeout when using context manager
 - **v0.17.8** – Add TestAttributes.with_args()
