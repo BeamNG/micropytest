@@ -403,8 +403,18 @@ class TestStore:
 
         This does not include artifacts and logs, which are reported separately during the test is running.
         """
-        self._artifact_transmitter.finish()
-        self._log_transmitter.finish()
+        transmit_error = None
+        try:
+            self._artifact_transmitter.finish()
+        except Exception as e:
+            transmit_error = RuntimeError(f"Error while finishing: during add_artifact: {e.__class__.__name__}: {e}")
+        try:
+            self._log_transmitter.finish()
+        except Exception as e:
+            transmit_error = RuntimeError(f"Error while finishing: during add_logs: {e.__class__.__name__}: {e}")
+        if transmit_error is not None:
+            result.status = "fail"
+            result.exception = transmit_error
         d = FinishTestRequestData(
             status=result.status,
             exception=format_exception(result.exception) if result.exception is not None else None,
@@ -607,6 +617,7 @@ class AsyncTransmitter:
         self._finish = False
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
+        self._error = None  # error that occurred in the thread
 
     def push(self, run_id: int, item: Any):
         """Push an item to be transmitted (non-blocking call that returns immediately)."""
@@ -630,6 +641,10 @@ class AsyncTransmitter:
             sleep(0.05)
         with self._lock:
             self._finish = False
+            e = self._error
+            self._error = None
+        if e is not None:
+            raise e  # re-raise the error that occurred in the thread
 
     def _is_ready(self) -> bool:
         """Ready to accept items for a new run."""
@@ -647,9 +662,14 @@ class AsyncTransmitter:
                 with self._lock:
                     current_run_id = self._current_run_id
                     _pending_items = self._pending_items.copy()
+                error = None
                 if current_run_id is not None and len(_pending_items) > 0:
-                    self._transmit(current_run_id, _pending_items)
+                    try:
+                        self._transmit(current_run_id, _pending_items)
+                    except Exception as e:
+                        error = e
                 with self._lock:
+                    self._error = error
                     self._pending_items = []
                     if finish:
                         self._current_run_id = None
