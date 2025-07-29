@@ -6,6 +6,7 @@ import os
 import sys
 import subprocess
 import logging
+import json
 from pydantic import BaseModel, JsonValue, Base64Bytes, Field
 from typing import Literal, Annotated, Any
 import threading
@@ -287,7 +288,7 @@ class TestStore:
         self.platform: str = platform or get_current_platform()
         self.job: Optional[int] = job  # job ID for the set of tests to be run
         self.timeout: float = timeout
-        self._test_alive_daemon = TestAliveDaemon(url)
+        self._test_alive_daemon = TestAliveDaemon(url, headers)
         self._session = requests.Session()
         self._session_lock = threading.Lock()
         self._artifact_transmitter = AsyncArtifactTransmitter(self, transmit_interval=0.0)
@@ -769,8 +770,10 @@ class TestAliveDaemon:
     """Persistent subprocess that sends keep-alive messages to the server periodically.
     The subprocess is terminated when the TestStore object goes out of scope.
     """
-    def __init__(self, api_endpoint):
+    def __init__(self, api_endpoint, headers):
         daemon_file = os.path.join(os.path.dirname(__file__), "utils", "daemon.py")
+        env = os.environ.copy()
+        env["HTTP_HEADERS"] = json.dumps(headers)
         self.proc = subprocess.Popen(
             [sys.executable, daemon_file, api_endpoint],
             stdin=subprocess.PIPE,
@@ -778,6 +781,7 @@ class TestAliveDaemon:
             stderr=subprocess.DEVNULL,
             bufsize=1,
             universal_newlines=True,
+            env=env,
         )
         self.thread = threading.Thread(target=self._read_child_output, daemon=True)
         self.thread.start()

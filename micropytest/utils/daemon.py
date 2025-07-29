@@ -6,10 +6,12 @@ import sys
 import os
 import time
 import threading
+import json
 import requests
 
 ALIVE_INTERVAL = 5  # seconds
 REQUEST_TIMEOUT = 1  # seconds
+HTTP_HEADERS = json.loads(os.environ.get("HTTP_HEADERS", "{}"))
 
 def main():
     if len(sys.argv) < 2:
@@ -83,7 +85,7 @@ def main():
 def send_running_alive(run_id: int, url: str, session: requests.Session) -> bool:
     """Report to server that a test is still running, return True if the test was cancelled server side."""
     url = f"{url}/runs/{run_id}/alive"
-    response = session.put(url, headers={}, timeout=REQUEST_TIMEOUT)
+    response = session.put(url, headers=HTTP_HEADERS, timeout=REQUEST_TIMEOUT)
     response.raise_for_status()
     return response.json()['cancel']
 
