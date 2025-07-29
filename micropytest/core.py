@@ -93,6 +93,10 @@ class TestContext:
     def get_artifacts(self):
         return self.artifacts
 
+    def finish(self):
+        """Custom function that is called after a test was run."""
+        pass
+
 
 class GlobalContextLogHandler(logging.Handler):
     """
@@ -431,6 +435,12 @@ def run_test_collect_result(test: Test, ctx, logger, dry_run) -> TestResult:
         status = "fail"
         exception = e
         logger.error(f"FINISHED FAIL: {key} ({duration:.3f}s)\n{format_exception(e)}")
+
+    try:
+        ctx.finish()
+    except Exception as e:
+        status = "fail"
+        exception = e
 
     return TestResult(
         test=test,

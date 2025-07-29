@@ -398,11 +398,8 @@ class TestStore:
         """Push a log to be transmitted asynchronously."""
         self._log_transmitter.push(run_id, log)
 
-    def finish_test(self, run_id: int, result: TestResult) -> None:
-        """Finish a test run, reporting the result.
-
-        This does not include artifacts and logs, which are reported separately during the test is running.
-        """
+    def finish_logs_and_artifacts(self) -> None:
+        """Finish transmitting logs and artifacts (blocks until transmission is complete)."""
         transmit_error = None
         try:
             self._artifact_transmitter.finish()
@@ -413,8 +410,13 @@ class TestStore:
         except Exception as e:
             transmit_error = RuntimeError(f"Error while finishing: during add_logs: {e.__class__.__name__}: {e}")
         if transmit_error is not None:
-            result.status = "fail"
-            result.exception = transmit_error
+            raise transmit_error
+
+    def finish_test(self, run_id: int, result: TestResult) -> None:
+        """Finish a test run, reporting the result.
+
+        This does not include artifacts and logs, which are reported separately during the test is running.
+        """
         d = FinishTestRequestData(
             status=result.status,
             exception=format_exception(result.exception) if result.exception is not None else None,
@@ -711,6 +713,10 @@ class TestContextStored(TestContext):
     def add_log(self, record: logging.LogRecord):
         super().add_log(record)
         self.store.push_log(self.run_id, record)
+
+    def finish(self):
+        super().finish()
+        self.store.finish_logs_and_artifacts()
 
 
 def _to_list(value, default):
