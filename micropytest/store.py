@@ -628,9 +628,9 @@ class AsyncTransmitter:
             if self._is_ready():
                 self._current_run_id = run_id
             if self._current_run_id != run_id:
-                name = self.__class__.__name__
-                msg = f"{name}: Cannot push item for run {run_id} while current run is {self._current_run_id}"
-                raise RuntimeError(msg)
+                # We could end up here if a KeyboardInterrupt happened and finish() was not called -> reset silently.
+                self._current_run_id = run_id
+                self._pending_items = []
             self._pending_items.append(item)
 
     def finish(self):
