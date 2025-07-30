@@ -735,7 +735,8 @@ def _to_finish_reason(exception: Optional[Exception]) -> str:
         if isinstance(exception, SkipTest):
             finish_reason = f"skipped: {exception}"
         else:
-            finish_reason = f" finished with exception: {exception}"
+            exception_type = exception.__class__.__name__
+            finish_reason = f" finished with exception: {exception_type}: {exception}"
     return finish_reason
 
 
