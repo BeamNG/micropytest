@@ -293,6 +293,7 @@ class TestStore:
         self._session_lock = threading.Lock()
         self._artifact_transmitter = AsyncArtifactTransmitter(self, transmit_interval=0.0)
         self._log_transmitter = AsyncLogTransmitter(self, transmit_interval=5.0)
+        self._disable_request_logging()
 
     def test_definition(self, test: Test) -> TestDefinition:
         return TestDefinition(
@@ -552,11 +553,8 @@ class TestStore:
 
     def _request(self, method: str, url: str, json: Optional[BaseModel] = None) -> requests.Response:
         json_data = dump_json(json) if json is not None else None
-        # We need to disable logging during the request is made to prevent infinite recursion (posting request logs
-        # to the server, for example if the session pool is full)
-        with DisableLogging():
-            with self._session_lock:
-                res = self._session.request(method, url, json=json_data, headers=self.headers, timeout=self.timeout)
+        with self._session_lock:
+            res = self._session.request(method, url, json=json_data, headers=self.headers, timeout=self.timeout)
         return res
 
     def _post(self, url: str, json: Optional[BaseModel] = None) -> requests.Response:
@@ -590,23 +588,13 @@ class TestStore:
                     ])
             raise HTTPError(msg, response=response)
 
-
-class DisableLogging:
-    def __init__(self):
-        self.original_levels = {}
-
-    def __enter__(self):
-        # Store original levels of all loggers
+    def _disable_request_logging(self):
+        # Disable logging for the requests and urllib3 libraries, as this might cause infinite recursion
+        # (because every log triggers a request and every request might trigger additional logs)
         loggers = [logging.getLogger()] + [logging.getLogger(name) for name in logging.root.manager.loggerDict]
         for logger in loggers:
-            self.original_levels[logger] = logger.level
-            logger.setLevel(logging.CRITICAL)
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        # Restore original levels
-        for logger, level in self.original_levels.items():
-            logger.setLevel(level)
+            if logger.name.startswith("urllib3") or logger.name.startswith("requests"):
+                logger.setLevel(logging.CRITICAL + 1)
 
 
 class AsyncTransmitter:
