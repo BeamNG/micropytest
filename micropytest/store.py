@@ -664,16 +664,16 @@ class AsyncTransmitter:
                 slept = 0.0
                 with self._lock:
                     current_run_id = self._current_run_id
-                    _pending_items = self._pending_items.copy()
+                    pending_items = self._pending_items.copy()
+                    self._pending_items = []
                 error = None
-                if current_run_id is not None and len(_pending_items) > 0:
+                if current_run_id is not None and len(pending_items) > 0:
                     try:
-                        self._transmit(current_run_id, _pending_items)
+                        self._transmit(current_run_id, pending_items)
                     except Exception as e:
                         error = e
                 with self._lock:
                     self._error = error
-                    self._pending_items = []
                     if finish:
                         self._current_run_id = None
             sleep(sleep_interval)
