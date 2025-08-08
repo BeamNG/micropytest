@@ -23,6 +23,9 @@ def main():
     print("Discovering tests...")
     tests = discover_tests(discover_ctx, TESTS_PATH)
     print(f"Discovered {len(tests)} tests")
+    if len(tests) == 0:
+        print("No tests to run.")
+        return
     t = time.time()
     for test in tests:
         store.enqueue_test(test)
