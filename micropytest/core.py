@@ -6,6 +6,7 @@ import json
 import traceback
 import inspect
 import time
+from fnmatch import fnmatch
 from os import PathLike
 from datetime import datetime, timezone
 from pathlib import Path
@@ -166,15 +167,36 @@ def find_test_files(start_dir="."):
     """
     Recursively find all *.py that match test_*.py or *_test.py,
     excluding typical venv, site-packages, or __pycache__ folders.
+    This will also exclude patterns from .micropytestignore files.
     """
     test_files = []
+    ignore_patterns = []
     for root, dirs, files in os.walk(start_dir):
         if (".venv" in root) or ("venv" in root) or ("site-packages" in root) or ("__pycache__" in root):
             continue
         for f in files:
             if (f.startswith("test_") or f.endswith("_test.py")) and f.endswith(".py"):
                 test_files.append(os.path.join(root, f))
-    return test_files
+            if f == ".micropytestignore":
+                patterns = read_ignore_patterns(os.path.join(root, f))
+                ignore_patterns.extend([os.path.join(root, pattern) for pattern in patterns])
+
+    test_files_used = []
+    for test_file in test_files:
+        if not any(fnmatch(test_file, ignore_pattern) for ignore_pattern in ignore_patterns):
+            test_files_used.append(test_file)
+
+    return test_files_used
+
+
+def read_ignore_patterns(file_path):
+    with open(os.path.join(file_path), "r") as f:
+        lines = []
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#"):
+                lines.append(line)
+        return lines
 
 
 def discover_tests(discover_ctx, tests_path, test_filter=None, tag_filter=None, exclude_tags=None) -> list[Test]:

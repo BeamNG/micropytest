@@ -1,0 +1,8 @@
+# Define file patterns here that will be ignored by micropytest
+*ignore*.py
+
+# Further examples:
+# ignore_directory/*
+# ignore_sub/directory/*
+# ignore_file_test.py
+# subdir/*.py
