@@ -85,6 +85,7 @@ Key features:
 - Interact with processes via stdin
 - Access stdout/stderr at any point during execution
 - Set custom environment variables and working directories
+- Allow ignoring test files by using `.micropytestignore` files.
 
 ## Test Filtering
 
@@ -202,6 +203,7 @@ python -m twine upload dist/micropytest-xxx.tar.gz
 Make sure to update the version number in `__init__.py` and `pyproject.toml` before building a new release.
 
 ## Changelog
+- **v0.19.0** – Add support for ignoring test files by using `.micropytestignore` files
 - **v0.18.5** – Fix bugs in TestStore (artifacts and logs not being transmitted)
 - **v0.18.4** – Fix bug in TestStore
 - **v0.18.3** – Fix bugs related to KeepAlive
