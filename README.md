@@ -203,6 +203,7 @@ python -m twine upload dist/micropytest-xxx.tar.gz
 Make sure to update the version number in `__init__.py` and `pyproject.toml` before building a new release.
 
 ## Changelog
+- **v0.19.1** – Add support for overriding job argument when getting last test run
 - **v0.19.0** – Add support for ignoring test files by using `.micropytestignore` files
 - **v0.18.5** – Fix bugs in TestStore (artifacts and logs not being transmitted)
 - **v0.18.4** – Fix bug in TestStore
