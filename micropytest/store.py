@@ -503,11 +503,12 @@ class TestStore:
         self,
         test: Test,
         status: Optional[Union[str, list[str]]] = None,
+        job: Optional[Union[int, list[int]]] = None,
         artifact_keys: bool = False,
     ) -> Optional[TestRun]:
         """Return the last test run for a test, optionally filtered by status, for this branch and platform (and
-        job if self.job is set), or None if no matching run exists."""
-        runs = self.get_test_runs(test, order=-1, limit=1, status=status, artifact_keys=artifact_keys)
+        job if self.job is set and is not overridden by the job argument), or None if no matching run exists."""
+        runs = self.get_test_runs(test, order=-1, limit=1, status=status, job=job, artifact_keys=artifact_keys)
         if len(runs) == 0:
             return None
         return runs[0]
