@@ -36,8 +36,8 @@ def vcs_helper_function(ctx, file_path):
     # VCSInterface implementations
     vcs_helper = VCSHelper()
 
-    ctx.info(f"VCS Test")
-    ctx.info(f"=============")
+    ctx.info("VCS Test")
+    ctx.info("=============")
     ctx.info(f"Testing file: {current_file}")
 
     # Detect VCS
