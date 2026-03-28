@@ -174,7 +174,16 @@ def print_summary(test_results: list[TestResult], quiet=False, console=None) -> 
     
     # Add timing information
     if stats.total_time > TIME_REPORT_CUTOFF:
-        parts.append(Text(f"took {stats.total_time:.2g} seconds", style="cyan"))
+        # Convert total_time to HH:MM:SS for better readability
+        hours, remainder = divmod(int(stats.total_time), 3600)
+        minutes, seconds = divmod(remainder, 60)
+        if hours > 0:
+            time_str = f"{hours}h {minutes:02d}m {seconds:02d}s"
+        elif minutes > 0:
+            time_str = f"{minutes}m {seconds:02d}s"
+        else:
+            time_str = f"{seconds}s"
+        parts.append(Text(f"took {time_str}", style="cyan"))
     
     if not parts:
         parts.append(Text("no tests run", style="cyan"))
