@@ -1,18 +1,18 @@
-import sys
 import argparse
 import logging
+import sys
 
 from rich.console import Console
-from rich.text import Text
 from rich.panel import Panel
+from rich.text import Text
 
 from . import __version__
 from .core import (
-    setup_logging,
-    SimpleLogFormatter,
-    run_tests,
-    TestStats,
     TIME_REPORT_CUTOFF,
+    SimpleLogFormatter,
+    TestStats,
+    run_tests,
+    setup_logging,
 )
 from .types import TestResult
 
