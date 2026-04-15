@@ -312,7 +312,7 @@ def run_tests(
     tests_path,
     show_estimates=False,
     context_class=TestContext,
-    context_kwargs={},
+    context_kwargs=None,
     test_filter=None,
     tag_filter=None,
     exclude_tags=None,
@@ -340,6 +340,8 @@ def run_tests(
     :param exclude_tags: (str or list) Optional tag(s) to exclude tests by
     :param show_progress: (bool) Whether to show a progress bar during test execution
     """
+    if context_kwargs is None:
+        context_kwargs = {}
     discover_ctx = context_class(**context_kwargs)
     tests = discover_tests(discover_ctx, tests_path, test_filter, tag_filter, exclude_tags)
     test_results = run_discovered_tests(
@@ -360,10 +362,13 @@ def run_discovered_tests(
     show_estimates=False,
     show_progress=True,
     context_class=TestContext,
-    context_kwargs={},
+    context_kwargs=None,
     dry_run=False,
 ) -> list[TestResult]:
     """Run the given set of tests that were discovered in a previous step."""
+
+    if context_kwargs is None:
+        context_kwargs = {}
 
     # Logger
     root_logger = get_logger()
