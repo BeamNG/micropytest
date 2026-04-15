@@ -2,6 +2,7 @@
 from typing import Optional, Union
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from urllib.parse import quote
 import os
 import sys
 import subprocess
@@ -281,6 +282,7 @@ class TestStore:
         platform: Optional[str] = None,
         job: Optional[int] = None,
         timeout: float = 10.0,
+        use_binary_upload: bool = False,
     ):
         self.url: str = url
         self.headers: dict[str, str] = headers or {}
@@ -288,6 +290,7 @@ class TestStore:
         self.platform: str = platform or get_current_platform()
         self.job: Optional[int] = job  # job ID for the set of tests to be run
         self.timeout: float = timeout
+        self.use_binary_upload: bool = use_binary_upload
         self._test_alive_daemon = TestAliveDaemon(url, headers)
         self._session = requests.Session()
         self._session_lock = threading.Lock()
@@ -374,12 +377,24 @@ class TestStore:
     def add_artifact(self, run_id: int, key: str, value: ArtifactValue):
         """Add an artifact to a running test."""
         # This can be called by the TestContext
+        if isinstance(value, bytes) and self.use_binary_upload:
+            self._add_artifact_binary(run_id, key, value)
+            return
         url = f"{self.url}/runs/{run_id}/artifacts/add"
         d = AddArtifactRequestData(
             key=key,
             value=TypedBytes.wrap(value) if isinstance(value, bytes) else TypedJson.wrap(value),
         )
         response = self._post(url, d)
+        self._raise_for_status(response, url)
+
+    def _add_artifact_binary(self, run_id: int, key: str, value: bytes):
+        url = f"{self.url}/runs/{run_id}/artifacts/add/binary/{quote(key, safe='')}"
+        response = self._post_binary(
+            url,
+            data=value,
+            headers={"Content-Type": "application/octet-stream"},
+        )
         self._raise_for_status(response, url)
 
     def add_logs(self, run_id: int, logs: list[logging.LogRecord]) -> None:
@@ -552,14 +567,34 @@ class TestStore:
         response_data = GetTestsResponseData.model_validate(response.json())
         return [self.to_test(td) for td in response_data.test_definitions]
 
-    def _request(self, method: str, url: str, json: Optional[BaseModel] = None) -> requests.Response:
+    def _request(
+        self,
+        method: str,
+        url: str,
+        json: Optional[BaseModel] = None,
+        data: Optional[bytes] = None,
+        headers: Optional[dict[str, str]] = None,
+    ) -> requests.Response:
         json_data = dump_json(json) if json is not None else None
+        request_headers = dict(self.headers)
+        if headers is not None:
+            request_headers.update(headers)
         with self._session_lock:
-            res = self._session.request(method, url, json=json_data, headers=self.headers, timeout=self.timeout)
+            res = self._session.request(
+                method,
+                url,
+                json=json_data,
+                data=data,
+                headers=request_headers,
+                timeout=self.timeout,
+            )
         return res
 
     def _post(self, url: str, json: Optional[BaseModel] = None) -> requests.Response:
         return self._request("POST", url, json=json)
+
+    def _post_binary(self, url: str, data: bytes, headers: Optional[dict[str, str]] = None) -> requests.Response:
+        return self._request("POST", url, data=data, headers=headers)
 
     def _put(self, url: str, json: Optional[BaseModel] = None) -> requests.Response:
         return self._request("PUT", url, json=json)
