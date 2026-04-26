@@ -115,3 +115,7 @@ docker/*
 .idea
 *.iml
 .micropytest.json
+
+
+## Graphify Generated Files ###
+**/graphify-out/cache/
