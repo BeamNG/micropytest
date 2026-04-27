@@ -14,7 +14,7 @@ TESTS_PATH = os.environ.get("TESTS_PATH", ".")
 
 
 def main():
-    print(f"Set up test store...")
+    print("Set up test store...")
     store = TestStore(url=API_URL)
     discover_ctx = TestContextStored(store)
     setup_logging()
