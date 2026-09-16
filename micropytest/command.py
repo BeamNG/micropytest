@@ -18,6 +18,7 @@ class Command:
         stdout_callback: Optional[Callable] = None,  # only used with context manager
         stderr_callback: Optional[Callable] = None,  # only used with context manager
         timeout: Optional[float] = None,             # only used with context manager
+        reader_join_timeout: float = 10.0,
     ):
         self.cmd = cmd
         self.cwd = cwd
@@ -26,6 +27,8 @@ class Command:
         self.stdout_callback = stdout_callback
         self.stderr_callback = stderr_callback
         self.timeout = timeout
+        self.reader_join_timeout = reader_join_timeout
+        self.readers_abandoned = False
         self._stdout_thread = None
         self._stderr_thread = None
         self.stdout_lines = []
@@ -111,6 +114,17 @@ class Command:
         for child in children:
             child.kill()
 
+    def _join_readers(self):
+        """Drain the reader threads, giving up after reader_join_timeout."""
+        # A grandchild that inherited the pipes holds them open after the child
+        # exits, so an unbounded join waits on a process nobody is tracking.
+        for thread in (self._stdout_thread, self._stderr_thread):
+            if thread is None:
+                continue
+            thread.join(timeout=self.reader_join_timeout)
+            if thread.is_alive():
+                self.readers_abandoned = True
+
     def wait(self, timeout=None):
         """Wait for the process to complete and return exit code."""
         if not self.process:
@@ -121,9 +135,7 @@ class Command:
             self.terminate()
             raise e
         finally:
-            # Wait for the threads to finish reading the streams
-            self._stdout_thread.join()
-            self._stderr_thread.join()
+            self._join_readers()
         return code
 
     def _wait_internal(self, timeout=None):
@@ -150,8 +162,7 @@ class Command:
             self.wait(timeout=self.timeout)
         else:
             self.terminate()
-            self._stdout_thread.join()
-            self._stderr_thread.join()
+            self._join_readers()
 
 
 # Simple helper for use with microPyTest
