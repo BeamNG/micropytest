@@ -215,3 +215,34 @@ print(f"Your favorite number is {number}")
     assert any("What is your name?" in line for line in all_output)
     assert any("Hello, Alice!" in line for line in all_output)
     assert any("Your favorite number is 42" in line for line in all_output) 
+
+@tag('command', 'unit', 'fast')
+def test_wait_gives_up_on_a_pipe_a_grandchild_still_holds(ctx):
+    """A child that exits leaving a grandchild on its stdout must not hang wait().
+
+    The reader threads block until the pipe reaches EOF, and a grandchild that
+    inherited it keeps it open long after the child is gone. Without a bound on
+    the join, wait() waits for the grandchild.
+    """
+    child = [
+        sys.executable, "-c",
+        "import subprocess,sys; subprocess.Popen("
+        "[sys.executable,'-c','import time; time.sleep(20)'])",
+    ]
+    started = time.monotonic()
+    with Command(child, reader_join_timeout=0.5) as cmd:
+        cmd.wait(timeout=5)
+    elapsed = time.monotonic() - started
+    ctx.debug(f"wait returned after {elapsed:.1f}s")
+    assert elapsed < 10, f"wait blocked {elapsed:.1f}s on the reader join"
+    assert cmd.readers_abandoned is True
+
+
+@tag('command', 'unit', 'fast')
+def test_readers_are_not_abandoned_on_a_clean_exit(ctx):
+    """A process whose pipes close normally must drain fully, as before."""
+    with Command([sys.executable, "-c", "print('bye')"], reader_join_timeout=5.0) as cmd:
+        cmd.wait(timeout=10)
+    assert cmd.readers_abandoned is False
+    assert "bye" in cmd.get_stdout()[0]
+
